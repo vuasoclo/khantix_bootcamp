@@ -1,0 +1,13 @@
+src/
+├── types/               risk-slot.types.ts · pricing-output.types.ts · internal-config.types.ts
+├── config/              internal-configs.loader.ts · heuristic-matrix.loader.ts
+├── calculators/         base-cost.calculator.ts · risk-multiplier.calculator.ts
+│                        commercial.calculator.ts · pricing.orchestrator.ts
+├── strategies/          prompt-strategy.interface.ts · investigator.strategy.ts · qualifier.strategy.ts
+├── services/            investigator.service.ts · calculator.service.ts
+├── schemas/             investigator-response.schema.ts · qualifier-response.schema.ts
+├── utils/               csv-parser.ts · explain-math.ts
+└── prompts/
+    ├── investigator/    system.prompt.md · developer.prompt.md · output-format.prompt.md
+    ├── calculator/      rationale.prompt.md
+    └── shared/          common-rules.prompt.md
