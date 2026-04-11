@@ -22,6 +22,7 @@ _last updated: 2026-03-28_
 - [KHantix - Thiết lập Tham số và Xây dựng Heuristic (FP0).md](file:///d:/Quota/KHantix/outputs/KHantix%20-%20Thi%E1%BA%BFt%20l%E1%BA%ADp%20Tham%20s%E1%BB%91%20v%C3%A0%20X%C3%A2y%20d%E1%BB%B1ng%20Heuristic%20%28FP0%29.md): Giải đáp về tham số nội bộ (Company Configs) và Hệ phương pháp xây dựng Bảng Heuristic.
 - [KHantix - FP2 Kiểm chứng Hướng giải quyết.md](file:///d:/Quota/KHantix/outputs/KHantix%20-%20FP2%20Ki%E1%BB%83m%20ch%E1%BB%A9ng%20H%C6%B0%E1%BB%9Bng%20gi%E1%BA%A3i%20quy%E1%BA%BFt.md): Phân tích FP2 kiểm chứng Pain Point thật và rủi ro Adoption dựa trên nghiên cứu thực tế.
 - [KHantix - tóm tắt tìm hiểu vấn đề.md](file:///d:/Quota/KHantix/outputs/KHantix%20-%20t%EF%BF%BDm%20t?t%20t%EF%BF%BDm%20hi?u%20v%3Fn%20d?.md): Bản tóm tắt kiến thức đã được nén.
+- [KHantix - Explainable Report & Pre-sales Override (Phase 2).md](file:///d:/khantix_bootcamp/KHantix_doc/outputs/KHantix%20-%20Explainable%20Report%20%26%20Pre-sales%20Override%20%28Phase%202%29.md): Phase 2 — Thiết kế Báo cáo Giải thích (Show the Math) và Bước Tinh chỉnh Thủ công (Human-in-the-loop Override) cho Pre-sales.
 
 ### [projects/](file:///d:/Quota/KHantix/projects/) (Action)
 - [Khantix - Prompts Gen Mock Data.md](file:///d:/Quota/KHantix/projects/Khantix%20-%20Prompts%20Gen%20Mock%20Data.md): Bộ 3 prompts ép giới hạn để Claude gen data (Internal Configs, Heuristic Matrix, Persona Khách hàng).

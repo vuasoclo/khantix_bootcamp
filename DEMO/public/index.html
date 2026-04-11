@@ -1,0 +1,358 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>KHantix AI CPQ — Intelligent Pricing System</title>
+  <meta name="description" content="KHantix AI CPQ: automates B2B IT pricing by translating technical symptoms into quantified financial risks with full explainability." />
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+
+  <!-- ══════════════════════════════════════════════════════ HEADER ═══ -->
+  <header id="header">
+    <div class="logo">
+      <div class="logo-icon">🔷</div>
+      <span class="logo-text">KHantix</span>
+      <span class="logo-badge">AI CPQ</span>
+    </div>
+
+    <div class="header-meta">
+      <span id="session-badge">No session</span>
+      <div id="provider-badge">
+        <span class="status-dot"></span>
+        <span id="provider-name">—</span>
+      </div>
+    </div>
+  </header>
+
+  <!-- ══════════════════════════════════════════════════ WORKSPACE ═══ -->
+  <main id="workspace">
+
+    <!-- ─────────────────────────────── PANEL 1: CHAT ─── -->
+    <section class="panel" id="chat-panel" aria-label="Investigator Conversation">
+
+      <div class="panel-header">
+        <div class="panel-title">
+          <span class="icon">💬</span>
+          Investigator Conversation
+        </div>
+      </div>
+
+      <div id="messages">
+        <div class="chat-welcome" id="chat-welcome">
+          <div class="welcome-icon">🤖</div>
+          <h3>KHantix Pre-sales AI</h3>
+          <p>
+            Start the conversation by introducing your project.
+            The AI will ask targeted questions to assess technical risks — no pricing commitments until all slots are filled.
+          </p>
+          <p style="margin-top:4px; font-size:11px; color:var(--text-muted);">
+            Example: <em>"We need an ERP system for our chain of 50 pharmacies."</em>
+          </p>
+        </div>
+
+        <!-- Typing indicator (hidden by default) -->
+        <div id="typing-indicator" role="status" aria-label="AI is thinking">
+          <span class="typing-dot"></span>
+          <span class="typing-dot"></span>
+          <span class="typing-dot"></span>
+        </div>
+      </div>
+
+      <div id="input-bar">
+        <textarea
+          id="user-input"
+          placeholder="Describe your project or answer the question..."
+          rows="1"
+          aria-label="Your message"
+        ></textarea>
+        <button id="send-btn" title="Send (Enter)" aria-label="Send message">➤</button>
+      </div>
+    </section>
+
+    <!-- ──────────────────────────── PANEL 2: SLOT TRACKER ─── -->
+    <section class="panel" id="slot-panel" aria-label="SIMT Risk Intelligence">
+
+      <div class="panel-header">
+        <div class="panel-title">
+          <span class="icon">🧠</span>
+          Risk Intelligence
+        </div>
+      </div>
+
+      <div id="slot-progress-wrap">
+        <div class="progress-label">
+          <span>Slots filled</span>
+          <span id="progress-count">0 / 8</span>
+        </div>
+        <div class="progress-bar-track">
+          <div id="progress-bar-fill" role="progressbar" aria-valuenow="0" aria-valuemin="0" aria-valuemax="8"></div>
+        </div>
+      </div>
+
+      <div id="slot-cards">
+        <!-- SIMT: Migration -->
+        <div class="slot-group-label">M — Migration</div>
+        <div class="slot-card" id="slot-Data_Risk" data-slot="Data_Risk" data-risk="null">
+          <span class="slot-icon">🗄️</span>
+          <div class="slot-content">
+            <div class="slot-name">Data Migration Quality</div>
+            <div class="slot-value">—</div>
+          </div>
+          <span class="slot-indicator"></span>
+        </div>
+
+        <!-- SIMT: Integration -->
+        <div class="slot-group-label">I — Integration</div>
+        <div class="slot-card" id="slot-Integration_Risk" data-slot="Integration_Risk" data-risk="null">
+          <span class="slot-icon">🔌</span>
+          <div class="slot-content">
+            <div class="slot-name">System Integration</div>
+            <div class="slot-value">—</div>
+          </div>
+          <span class="slot-indicator"></span>
+        </div>
+
+        <!-- SIMT: Training -->
+        <div class="slot-group-label">T — Training</div>
+        <div class="slot-card" id="slot-Tech_Literacy_Risk" data-slot="Tech_Literacy_Risk" data-risk="null">
+          <span class="slot-icon">👩‍🏫</span>
+          <div class="slot-content">
+            <div class="slot-name">User Tech Literacy</div>
+            <div class="slot-value">—</div>
+          </div>
+          <span class="slot-indicator"></span>
+        </div>
+
+        <!-- SIMT: Setup -->
+        <div class="slot-group-label">S — Setup</div>
+        <div class="slot-card" id="slot-Hardware_Sizing" data-slot="Hardware_Sizing" data-risk="null">
+          <span class="slot-icon">🖥️</span>
+          <div class="slot-content">
+            <div class="slot-name">Hardware Tier</div>
+            <div class="slot-value">—</div>
+          </div>
+          <span class="slot-indicator"></span>
+        </div>
+
+        <!-- Commercial -->
+        <div class="slot-group-label">Commercial</div>
+        <div class="slot-card" id="slot-Scope_Granularity" data-slot="Scope_Granularity" data-risk="null">
+          <span class="slot-icon">📐</span>
+          <div class="slot-content">
+            <div class="slot-name">Scope Granularity</div>
+            <div class="slot-value">—</div>
+          </div>
+          <span class="slot-indicator"></span>
+        </div>
+        <div class="slot-card" id="slot-Rush_Factor" data-slot="Rush_Factor" data-risk="null">
+          <span class="slot-icon">⚡</span>
+          <div class="slot-content">
+            <div class="slot-name">Rush Factor</div>
+            <div class="slot-value">—</div>
+          </div>
+          <span class="slot-indicator"></span>
+        </div>
+        <div class="slot-card" id="slot-Client_Logo_Size" data-slot="Client_Logo_Size" data-risk="null">
+          <span class="slot-icon">🏢</span>
+          <div class="slot-content">
+            <div class="slot-name">Client Size</div>
+            <div class="slot-value">—</div>
+          </div>
+          <span class="slot-indicator"></span>
+        </div>
+        <div class="slot-card" id="slot-Payment_Term" data-slot="Payment_Term" data-risk="null">
+          <span class="slot-icon">💳</span>
+          <div class="slot-content">
+            <div class="slot-name">Payment Term</div>
+            <div class="slot-value">—</div>
+          </div>
+          <span class="slot-indicator"></span>
+        </div>
+      </div>
+    </section>
+
+    <!-- ──────────────────────────── PANEL 3: PRICE REPORT ─── -->
+    <section class="panel" id="report-panel" aria-label="Price Report">
+
+      <div class="panel-header">
+        <div class="panel-title">
+          <span class="icon">📊</span>
+          Explainable Price Report
+        </div>
+      </div>
+
+      <div id="report-scroll">
+
+        <!-- Placeholder (shown before report is ready) -->
+        <div id="report-placeholder">
+          <div class="placeholder-ring">⏳</div>
+          <h3>Awaiting Analysis</h3>
+          <p>
+            Complete the conversation to fill all 8 risk slots. The price report will generate automatically.
+          </p>
+        </div>
+
+        <!-- The actual report (hidden until calculator runs) -->
+        <div id="report-content" hidden>
+
+          <!-- HERO: Recommended Price -->
+          <div id="price-hero" class="report-section">
+            <div class="price-label">💰 Recommended Price</div>
+            <div id="price-amount">—</div>
+            <div class="price-note" id="price-note">Based on project scope and risk assessment</div>
+            <div id="price-delta"></div>
+          </div>
+
+          <!-- Narrative -->
+          <div class="report-card report-section" id="narrative-card">
+            <div class="report-card-header">
+              <span>📖</span> Why This Price?
+            </div>
+            <div class="report-card-body">
+              <div id="narrative-list"></div>
+            </div>
+          </div>
+
+          <!-- Cost Breakdown -->
+          <div class="report-card report-section" id="cost-card">
+            <div class="report-card-header">
+              <span>🧮</span> Cost Breakdown
+            </div>
+            <div class="report-card-body" id="cost-items"></div>
+          </div>
+
+          <!-- Risk Adjustments -->
+          <div class="report-card report-section" id="risk-card">
+            <div class="report-card-header">
+              <span>⚠️</span> Risk Adjustments Applied
+            </div>
+            <div class="report-card-body" id="risk-items"></div>
+          </div>
+
+          <!-- Margin -->
+          <div class="report-card report-section" id="margin-card">
+            <div class="report-card-header">
+              <span>📈</span> Margin Breakdown
+            </div>
+            <div class="report-card-body" id="margin-items"></div>
+          </div>
+
+          <!-- Pre-sales Override Console -->
+          <div id="override-console" class="report-section">
+            <div class="override-header">
+              <span>🎛️</span>
+              <span class="override-title">Pre-sales Override Console</span>
+            </div>
+            <div class="override-body">
+
+              <div class="override-row-2col">
+                <div class="override-field">
+                  <label class="override-label" for="ov-data-risk">
+                    Data Risk
+                    <span class="current-val" id="ov-data-risk-cur">—</span>
+                  </label>
+                  <select id="ov-data-risk" class="override-select" aria-label="Override Data Risk">
+                    <option value="">AI Default</option>
+                    <option value="LOW">LOW</option>
+                    <option value="MEDIUM">MEDIUM</option>
+                    <option value="HIGH">HIGH</option>
+                    <option value="FALLBACK">FALLBACK</option>
+                  </select>
+                </div>
+
+                <div class="override-field">
+                  <label class="override-label" for="ov-int-risk">
+                    Integration Risk
+                    <span class="current-val" id="ov-int-risk-cur">—</span>
+                  </label>
+                  <select id="ov-int-risk" class="override-select" aria-label="Override Integration Risk">
+                    <option value="">AI Default</option>
+                    <option value="LOW">LOW</option>
+                    <option value="MEDIUM">MEDIUM</option>
+                    <option value="HIGH">HIGH</option>
+                  </select>
+                </div>
+
+                <div class="override-field">
+                  <label class="override-label" for="ov-tech-risk">
+                    Training Risk
+                    <span class="current-val" id="ov-tech-risk-cur">—</span>
+                  </label>
+                  <select id="ov-tech-risk" class="override-select" aria-label="Override Tech Literacy Risk">
+                    <option value="">AI Default</option>
+                    <option value="LOW">LOW</option>
+                    <option value="MEDIUM">MEDIUM</option>
+                    <option value="HIGH">HIGH</option>
+                  </select>
+                </div>
+
+                <div class="override-field">
+                  <label class="override-label" for="ov-strategy">
+                    Strategy
+                    <span class="current-val" id="ov-strategy-cur">HUNTER</span>
+                  </label>
+                  <select id="ov-strategy" class="override-select" aria-label="Override Commercial Strategy">
+                    <option value="HUNTER">HUNTER</option>
+                    <option value="FARMER">FARMER</option>
+                  </select>
+                </div>
+              </div>
+
+              <div class="override-row-2col">
+                <div class="override-field">
+                  <label class="override-label" for="ov-mandays">Man-Days</label>
+                  <input id="ov-mandays" class="override-input" type="number" min="1" max="500" placeholder="Auto" aria-label="Override Estimated Man-Days" />
+                </div>
+
+                <div class="override-field">
+                  <label class="override-label" for="ov-role">Primary Role</label>
+                  <select id="ov-role" class="override-select" aria-label="Override Primary Role">
+                    <option value="Senior">Senior</option>
+                    <option value="Junior">Junior</option>
+                    <option value="PM">PM</option>
+                    <option value="BA">BA</option>
+                  </select>
+                </div>
+              </div>
+
+              <div class="override-field">
+                <label class="override-label" for="ov-reason">
+                  Reason for override <span style="color:var(--risk-medium)">*</span>
+                </label>
+                <input
+                  id="ov-reason"
+                  class="override-input"
+                  type="text"
+                  placeholder="e.g. Customer already cleaned their data in Q1 2026..."
+                  aria-label="Override reason (required)"
+                />
+              </div>
+
+              <button id="override-apply-btn" class="override-apply-btn">
+                <span>⚡</span> Apply Override & Recalculate
+              </button>
+
+              <!-- Audit Log -->
+              <div class="report-card" id="audit-log-card" hidden>
+                <div class="report-card-header">
+                  <span>📋</span> Override Audit Log
+                </div>
+                <div class="report-card-body">
+                  <div id="audit-log"></div>
+                </div>
+              </div>
+
+            </div>
+          </div>
+
+        </div><!-- /report-content -->
+      </div><!-- /report-scroll -->
+    </section>
+
+  </main><!-- /workspace -->
+
+  <script src="app.js"></script>
+</body>
+</html>

@@ -49,3 +49,26 @@ export interface PriceBreakdown {
 
   calculatedAt: Date;
 }
+
+// ─── Legacy compatibility aliases ────────────────────────────────────────────
+// These exist so older scaffolded files (commercial.calculator, explain-math,
+// qualifier-response) continue to compile without modification.
+
+/** @deprecated — use PriceBreakdown instead */
+export interface PricingTier {
+  label: string;
+  estimatedPrice: number;
+  scope: string[];
+  manDays: number;
+  marginApplied: number;
+  reasonBehind: string;
+}
+
+/** @deprecated — use PriceBreakdown instead */
+export interface PricingOutput {
+  basic: PricingTier;
+  standard: PricingTier;
+  premium: PricingTier;
+  strategy: string;
+}
+
