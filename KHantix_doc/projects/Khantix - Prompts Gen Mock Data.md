@@ -38,43 +38,65 @@ Dữ liệu bắt buộc phải có các dòng sau (bạn tự set value đúng 
 
 ---
 
-## PROMPT 2: GEN BẢNG HEURISTIC (TỪ ĐIỂN TRIỆU CHỨNG)
+## PROMPT 2: GEN BẢNG HEURISTIC V2 (COCOMO EFFORT MULTIPLIERS)
 
 ```markdown
-**Mục tiêu:** Viết script Python dùng Pandas để tạo file `heuristic_matrix.csv`. Đây là "Từ điển Triệu chứng" dùng để ánh xạ câu trả lời đời thường của khách hàng B2B sang các Giá trị Rủi ro Kỹ thuật (Risk Buffer). Xuất file CSV sau khi chạy.
+**Mục tiêu:** Viết script Python dùng Pandas để tạo file `heuristic_matrix_v2.csv`. File này là "Bảng Quy tắc Suy luận" (Heuristic Ruleset) để ánh xạ câu trả lời đời thường của khách hàng B2B → Effort Multiplier (EM) cho từng chiều rủi ro con. Hệ thống áp dụng mô hình COCOMO II Effort Multipliers — mỗi biến con là một hệ số nhân riêng biệt, KHÔNG gộp thành HIGH/LOW → % nữa. Xuất file CSV sau khi chạy.
+
+**Tài liệu tham chiếu — Bảng Từ điển Tham số Định giá:**
+Bạn PHẢI map đầy đủ tất cả các biến con (sub-parameter) từ bảng dưới đây vào CSV.
+
+LỚP 2 — RỦI RO & PHỨC TẠP:
+- Data Format (Enum: Excel/PDF/SQL) → EM_D1
+- Data Volume (Number: năm / số dòng) → EM_D2
+- Data Integrity (Boolean: sạch / rác) → EM_D3
+- API Availability (Boolean: mở / đóng) → EM_I1
+- Legacy System Age (Number: tuổi hệ thống) → EM_I2
+- End-user Age (Range: tuổi trung bình nhân viên) → EM_T1
+- Prior System Experience (Boolean: đã dùng app chưa) → EM_T2
+
+LỚP 1 — GIÁ VỐN (bổ sung 2 EM mới):
+- Deployment Location (Enum: Onsite/Remote) → EM_B1
+- Hardware Dependency (Enum: SMS, Map, Scanner...) → EM_B2
+
+LỚP 3 — THƯƠNG MẠI:
+- Rush Factor (Boolean: gấp hay từ từ) → EM_C1
+- Client Logo Size (Enum: Enterprise/SMB) → EM_C2
+- Payment Term (Enum: trả đứt / trả góp) → EM_C3
 
 **Ràng buộc Kiến trúc (Constraints):**
-Dữ liệu phải tuân thủ chuẩn "Extremes Mapping" (Tốt nhất và Tệ nhất) và luôn có "Fallback" (Gom rác).
-Cấu trúc CSV gồm các cột: `Slot_Target` (Mục tiêu), `User_Symptom_Keywords` (Keywords khách dùng), `Mapped_Value` (HIGH/MEDIUM/LOW), `Buffer_Percentage` (Từ 0.0 đến 0.35).
 
-Bắt buộc sinh dữ liệu theo các quy tắc "Extremes Mapping" cho đầy đủ 8 Slot sau:
-1. Slot: `Data_Risk` (Rủi ro Dữ liệu)
-   - Nhóm HIGH (Buffer 0.3): Khách dùng từ [Excel, ghi sổ tay, copy USB, không quy trình].
-   - Nhóm LOW (Buffer 0.05): [Đã có ERP, API chuẩn, xuất SQL].
-   - Nhóm FALLBACK (Buffer 0.35): [Chưa biết, hệ thống tự code cũ, dữ liệu giấy].
-2. Slot: `Integration_Risk` (Rủi ro Tích hợp)
-   - Nhóm HIGH (Buffer 0.25): [MISA, Kiotviet, phần mềm đóng, bắt buộc lấy số dư cũ].
-   - Nhóm LOW (Buffer 0.0): [Độc lập hoàn toàn, không cần nối, làm riêng].
-3. Slot: `Tech_Literacy_Risk` (Kháng cự Công nghệ)
-   - Nhóm HIGH (Buffer 0.15): [Công nhân, cô chú lớn tuổi, mù công nghệ, toàn dùng Zalo].
-   - Nhóm LOW (Buffer 0.0): [Văn phòng trẻ, xài thạo app].
-4. Slot: `Hardware_Sizing` (Quy mô User/Data - Cần cho Giá vốn)
-   - Nhóm TIER_SMALL: [dưới 50 người, cửa hàng nhỏ, vài trăm đơn].
-   - Nhóm TIER_LARGE: [chuỗi trăm quán, hàng chục ngàn nhân viên, hệ thống toàn quốc].
-5. Slot: `Scope_Granularity` (Độ lớn Phạm vi - Cần cho Giá vốn ManDays)
-   - Nhóm SMALL: [chỉ cần bán hàng, kho lặt vặt, làm đơn giản gọn nhẹ].
-   - Nhóm ENTERPRISE: [ôm đồm cả kế toán, nhân sự, crm, quản lý tổng thể].
-6. Slot: `Rush_Factor` (Độ khẩn cấp - Cần cho Giá Thương vụ)
-   - Nhóm HIGH (Multiplier 1.5): [ép tiến độ, go-live tháng tới, cháy nhà, làm gấp ngày đêm].
-   - Nhóm LOW (Multiplier 1.0): [cứ từ từ làm, không vội, túc tắc].
-7. Slot: `Client_Logo_Size` (Chiến lược Branding)
-   - Nhóm ENTERPRISE (Multiplier 0.8): [tập đoàn, chuỗi lớn, công ty cổ phần đại chúng].
-   - Nhóm SMB (Multiplier 1.0): [cửa hàng nhỏ lẻ, công ty gia đình].
-8. Slot: `Payment_Term` (Dòng tiền)
-   - Nhóm UPFRONT (Discount_Payment 5%): [trả đứt 1 vòng, tiền không thiếu, chuyển khoản 1 cục].
-   - Nhóm INSTALLMENT (Discount 0%): [trả rải rác, đói vốn, trả góp].
+1. **Cấu trúc CSV PHẢI có các cột sau:**
+   - `Row_ID`: Số thứ tự.
+   - `EM_ID`: Mã Effort Multiplier (VD: EM_D1, EM_I1, EM_C1).
+   - `EM_Name`: Tên đầy đủ bằng tiếng Anh.
+   - `Dictionary_Param`: Tên tham số gốc trong Từ điển (VD: "Data Format", "API Availability").
+   - `User_Symptom_Keywords`: Danh sách keyword mồi bằng tiếng Việt, format Python list string.
+   - `EM_Default`: Giá trị EM mặc định (VD: 1.15). Đây là giá trị tham chiếu khi AI không tự ước lượng được.
+   - `EM_Min`: Biên dưới cho phép (VD: 1.00). AI không được đề xuất thấp hơn.
+   - `EM_Max`: Biên trên cho phép (VD: 1.20). AI không được đề xuất cao hơn.
+   - `Reasoning_Hint`: Gợi ý lý do để AI viết Explanation (VD: "Excel cần ETL pipeline chuyển đổi format").
 
-**Yêu cầu Output:** Viết script khởi tạo DataFrame với ít nhất 40-50 dòng (đảm bảo ít nhất 2-3 record cho mỗi khe/mức độ mồi của từng Slot). Các keyword mồi phải thực tế (viết bằng định dạng list chứa cụm từ). Tự chạy Coder Interpreter và cho tôi tải file CSV về.
+2. **Quy tắc Extremes Mapping cho mỗi EM_ID:**
+   - Phải có ít nhất 2 dòng "Tốt nhất" (EM gần 1.0 — ít rủi ro) với keyword khác nhau.
+   - Phải có ít nhất 2 dòng "Tệ nhất" (EM gần Max — rủi ro cao) với keyword khác nhau.
+   - Phải có 1 dòng "Fallback" (keyword: "chưa biết", "hỏi lại IT") với EM_Default = giá trị trung bình ngành.
+
+3. **Range EM cho từng nhóm (Guardrails):**
+   - EM_D1 (Data Format):      Min=1.00, Max=1.20
+   - EM_D2 (Data Volume):      Min=1.00, Max=1.25
+   - EM_D3 (Data Integrity):   Min=1.00, Max=1.15
+   - EM_I1 (API Availability): Min=1.00, Max=1.20
+   - EM_I2 (Legacy System Age):Min=1.00, Max=1.15
+   - EM_T1 (End-user Age):     Min=1.00, Max=1.15
+   - EM_T2 (Prior System Exp): Min=1.00, Max=1.10
+   - EM_B1 (Deployment Loc):   Min=1.00, Max=1.30
+   - EM_B2 (HW Dependency):    Min=1.00, Max=1.15
+   - EM_C1 (Rush Factor):      Min=1.00, Max=1.50
+   - EM_C2 (Client Logo):      Min=0.80, Max=1.00
+   - EM_C3 (Payment Term):     Discount 0% — 5% (không phải EM nhân, mà là % chiết khấu)
+
+**Yêu cầu Output:** Viết script khởi tạo DataFrame với ít nhất 55-70 dòng (đảm bảo ít nhất 2 dòng tốt + 2 dòng tệ + 1 fallback cho mỗi EM). Keyword mồi phải thực tế, bằng tiếng Việt, viết dạng Python list string. Tự chạy Code Interpreter và cho tôi tải file CSV về.
 ```
 
 ---

@@ -1,27 +1,78 @@
 import { PromptBuilder } from '../builders/prompt.builder';
 import { InvestigatorStrategy } from '../strategies/investigator.strategy';
-import { InvestigatorResponse } from '../schemas/investigator-response.schema';
-import { SessionState, EMPTY_SLOTS, RiskSlot } from '../types/risk-slot.types';
+import { InvestigatorResponse, EMEstimateFromLLM } from '../schemas/investigator-response.schema';
+import {
+  EffortMultiplierSet,
+  EffortMultiplierEstimate,
+  EM_ID,
+  Confidence,
+  EvidenceSource,
+  createEmptyEMSet,
+} from '../types/effort-multiplier.types';
 import { safeJsonParse } from '../utils/safe-json';
 
-// InvestigatorService orchestrates one turn of the Investigator conversation.
-// Caller is responsible for maintaining SessionState between turns.
+// ─── Session State ────────────────────────────────────────────────────────────
+
+export interface EMSessionState {
+  sessionId: string;
+  emSet: EffortMultiplierSet;
+  conversationHistory: Array<{ role: 'user' | 'assistant'; content: string }>;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+// ─── Helpers ──────────────────────────────────────────────────────────────────
+
+function clamp(value: number, min: number, max: number): number {
+  return Math.max(min, Math.min(max, value));
+}
+
+function computeCompound(emSet: EffortMultiplierSet): void {
+  // Product of all non-null risk EMs (D1-D3, I1-I2, T1-T2)
+  const riskIds: EM_ID[] = ['EM_D1', 'EM_D2', 'EM_D3', 'EM_I1', 'EM_I2', 'EM_T1', 'EM_T2'];
+  let compound = 1.0;
+  for (const em of emSet.multipliers) {
+    if (riskIds.includes(em.em_id) && em.value !== null) {
+      compound *= clamp(em.value, em.range[0], em.range[1]);
+    }
+  }
+  emSet.compoundMultiplier = compound;
+  emSet.effectiveBufferPercent = `+${((compound - 1) * 100).toFixed(1)}%`;
+}
+
+function countFilled(emSet: EffortMultiplierSet): number {
+  return emSet.multipliers.filter(m => m.value !== null).length;
+}
+
+// ─── InvestigatorService (COCOMO version) ─────────────────────────────────────
 
 export class InvestigatorService {
   private strategy = new InvestigatorStrategy();
 
-  // Builds the full prompt for one LLM turn and returns the response.
-  // `callLlm` is injected so the service stays testable and provider-agnostic.
   async runTurn(
     userMessage: string,
-    session: SessionState,
+    session: EMSessionState,
     callLlm: (prompt: string) => Promise<string>
-  ): Promise<{ session: SessionState; nextQuestion: string; done: boolean }> {
+  ): Promise<{ session: EMSessionState; nextQuestion: string; done: boolean }> {
     const contract = this.strategy.build();
 
+    // Build state context showing filled/missing EMs
+    const filledEMs = session.emSet.multipliers
+      .filter(m => m.value !== null)
+      .map(m => `  ${m.em_id} (${m.name}) = ${m.value} [${m.confidence}]`);
+    const missingEMs = session.emSet.multipliers
+      .filter(m => m.value === null)
+      .map(m => `  ${m.em_id} (${m.name}) — range: [${m.range[0]}, ${m.range[1]}]`);
+
     const stateContext = `
-Current filled slots: ${JSON.stringify(session.slots, null, 2)}
-Missing slots: ${session.missingSlots.join(', ')}
+Current Effort Multiplier state:
+FILLED (${filledEMs.length}/12):
+${filledEMs.join('\n') || '  (none yet)'}
+
+MISSING (${missingEMs.length}/12):
+${missingEMs.join('\n') || '  (all filled!)'}
+
+Compound risk multiplier so far: ${session.emSet.compoundMultiplier.toFixed(3)}
 `;
 
     const prompt = new PromptBuilder()
@@ -35,7 +86,7 @@ Missing slots: ${session.missingSlots.join(', ')}
     const parsed = safeJsonParse<InvestigatorResponse>(rawResponse);
 
     if (!parsed) {
-      // Graceful degradation: keep session unchanged, ask a safe fallback question
+      // Graceful degradation
       return {
         session,
         nextQuestion: 'Could you tell me a bit more about your current setup?',
@@ -43,41 +94,41 @@ Missing slots: ${session.missingSlots.join(', ')}
       };
     }
 
-    // Merge updated slots into session
-    const mergedSlots: RiskSlot = {
-      ...session.slots,
-      ...parsed.updatedSlots,
-    };
+    // Merge AI estimates into session EM set
+    for (const aiEM of parsed.effortMultipliers) {
+      const existing = session.emSet.multipliers.find(m => m.em_id === aiEM.em_id);
+      if (existing && aiEM.value !== null) {
+        existing.value = clamp(aiEM.value, existing.range[0], existing.range[1]);
+        existing.confidence = (aiEM.confidence as Confidence) ?? 'medium';
+        existing.source = (aiEM.source as EvidenceSource) ?? 'ai_inference_from_context';
+        existing.evidence = aiEM.evidence;
+        existing.reasoning = aiEM.reasoning;
+      }
+    }
 
-    const missingSlots = (Object.keys(mergedSlots) as Array<keyof RiskSlot>)
-      .filter((k) => mergedSlots[k] === null);
+    // Recompute compound
+    computeCompound(session.emSet);
 
-    const updatedSession: SessionState = {
-      ...session,
-      slots: mergedSlots,
-      filledSlots: (Object.keys(mergedSlots) as Array<keyof RiskSlot>).filter((k) => mergedSlots[k] !== null),
-      missingSlots,
-      conversationHistory: [
-        ...session.conversationHistory,
-        { role: 'user', content: userMessage },
-        { role: 'assistant', content: parsed.nextQuestionToUser },
-      ],
-      updatedAt: new Date(),
-    };
+    // Update conversation history
+    session.conversationHistory.push(
+      { role: 'user', content: userMessage },
+      { role: 'assistant', content: parsed.nextQuestionToUser },
+    );
+    session.updatedAt = new Date();
+
+    const filled = countFilled(session.emSet);
 
     return {
-      session: updatedSession,
+      session,
       nextQuestion: parsed.nextQuestionToUser,
-      done: parsed.allSlotsFilled,
+      done: parsed.allSlotsFilled || filled >= 12,
     };
   }
 
-  createSession(sessionId: string): SessionState {
+  createSession(sessionId: string, definitions: Array<{ em_id: EM_ID; name: string; range: [number, number]; defaultValue: number }>): EMSessionState {
     return {
       sessionId,
-      slots: { ...EMPTY_SLOTS },
-      filledSlots: [],
-      missingSlots: Object.keys(EMPTY_SLOTS) as Array<keyof RiskSlot>,
+      emSet: createEmptyEMSet(definitions),
       conversationHistory: [],
       createdAt: new Date(),
       updatedAt: new Date(),

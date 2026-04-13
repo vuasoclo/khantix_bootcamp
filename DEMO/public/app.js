@@ -1,10 +1,10 @@
 /**
- * KHantix AI CPQ — Client-side Application
+ * KHantix AI CPQ — Client-side Application (COCOMO Edition)
  *
  * Manages:
- *  1. Session state (sessionId, slots, conversation)
+ *  1. Session state (sessionId, effortMultipliers, conversation)
  *  2. API calls: /api/health, /api/chat, /api/calculate, /api/override
- *  3. UI: slot tracker updates, chat rendering, price report reveal
+ *  3. UI: EM tracker updates, chat rendering, price report reveal
  *  4. Override Console: collects changes, sends to /api/override, re-renders
  */
 
@@ -14,32 +14,22 @@
 
 const state = {
   sessionId: null,
-  slots: {},
-  filledSlots: [],
-  missingSlots: [],
+  effortMultipliers: [],
+  compoundMultiplier: 1.0,
   allSlotsFilled: false,
   priceBreakdown: null,
-  originalPrice: null,       // baseline price before any override
-  isWaiting: false,          // true while awaiting LLM response
-  calcParams: {
-    estimatedManDays: null,  // null = auto-derive from slots
-    primaryRole: 'Senior',
-    userCount: null,
-    includesOnsite: false,
-    strategy: 'HUNTER',
-  },
+  originalPrice: null,
+  isWaiting: false,
 };
 
 // ─── Utilities ────────────────────────────────────────────────────────────────
 
-/** Generate a readable session ID */
 function generateSessionId() {
   const ts = new Date().toISOString().slice(0, 10).replace(/-/g, '');
   const rand = Math.random().toString(36).substring(2, 7).toUpperCase();
   return `KHX-${ts}-${rand}`;
 }
 
-/** Format a number as Vietnamese Dong */
 function formatVND(n) {
   return new Intl.NumberFormat('vi-VN', {
     style: 'currency',
@@ -48,12 +38,10 @@ function formatVND(n) {
   }).format(n);
 }
 
-/** Format a decimal as percentage */
 function fmtPct(n) {
   return `${(n * 100).toFixed(1)}%`;
 }
 
-/** Escape HTML to prevent injection */
 function esc(str) {
   return String(str ?? '')
     .replace(/&/g, '&amp;')
@@ -61,7 +49,6 @@ function esc(str) {
     .replace(/>/g, '&gt;');
 }
 
-/** Auto-resize textarea as user types */
 function autoResize(textarea) {
   textarea.style.height = 'auto';
   textarea.style.height = Math.min(textarea.scrollHeight, 120) + 'px';
@@ -123,48 +110,29 @@ function setInputEnabled(enabled) {
   state.isWaiting = !enabled;
 }
 
-// ─── UI: Slot Tracker ─────────────────────────────────────────────────────────
+// ─── UI: EM Tracker ───────────────────────────────────────────────────────────
 
-const SLOT_DISPLAY_MAP = {
-  Data_Risk:          { label: 'Data Migration Quality', icon: '🗄️' },
-  Integration_Risk:   { label: 'System Integration',     icon: '🔌' },
-  Tech_Literacy_Risk: { label: 'User Tech Literacy',     icon: '👩‍🏫' },
-  Hardware_Sizing:    { label: 'Hardware Tier',           icon: '🖥️' },
-  Scope_Granularity:  { label: 'Scope Granularity',      icon: '📐' },
-  Rush_Factor:        { label: 'Rush Factor',             icon: '⚡' },
-  Client_Logo_Size:   { label: 'Client Size',            icon: '🏢' },
-  Payment_Term:       { label: 'Payment Term',            icon: '💳' },
+const CONFIDENCE_BADGE = {
+  high:   '🟢',
+  medium: '🟡',
+  low:    '🔴',
+  null:   '',
 };
 
-const VALUE_DISPLAY = {
-  HIGH:        'HIGH ▲',
-  MEDIUM:      'MEDIUM ●',
-  LOW:         'LOW ▼',
-  FALLBACK:    'UNKNOWN ⚠',
-  TIER_LARGE:  'LARGE TIER',
-  TIER_SMALL:  'SMALL TIER',
-  ENTERPRISE:  'ENTERPRISE',
-  SMALL:       'SMALL',
-  SMB:         'SMB',
-  UPFRONT:     'UPFRONT 💰',
-  INSTALLMENT: 'INSTALLMENT',
-};
-
-function updateSlotTracker(slots, filledSlots) {
-  let filledCount = 0;
-
-  for (const [key, val] of Object.entries(slots)) {
-    const card = document.getElementById(`slot-${key}`);
+function updateEMTracker(multipliers, filledCount, compoundMultiplier, effectiveBufferPercent) {
+  for (const em of multipliers) {
+    const card = document.getElementById(`slot-${em.em_id}`);
     if (!card) continue;
 
     const valueEl = card.querySelector('.slot-value');
-    const wasEmpty = card.dataset.risk === 'null';
+    const confEl = card.querySelector('.slot-confidence');
+    const wasEmpty = card.dataset.status === 'empty';
 
-    if (val !== null && val !== undefined) {
-      filledCount++;
-      const displayVal = VALUE_DISPLAY[val] ?? val;
-      valueEl.textContent = displayVal;
-      card.dataset.risk = val;
+    if (em.value !== null && em.value !== undefined) {
+      valueEl.textContent = `×${em.value.toFixed(2)}`;
+      if (confEl) confEl.textContent = `${CONFIDENCE_BADGE[em.confidence] || ''} ${em.confidence || ''}`;
+      card.dataset.status = 'filled';
+      card.dataset.risk = em.confidence || 'medium';
 
       if (wasEmpty) {
         card.classList.add('filled');
@@ -172,57 +140,40 @@ function updateSlotTracker(slots, filledSlots) {
       }
     } else {
       valueEl.textContent = '—';
+      if (confEl) confEl.textContent = '';
+      card.dataset.status = 'empty';
       card.dataset.risk = 'null';
     }
   }
 
-  // Update progress
-  const total = Object.keys(SLOT_DISPLAY_MAP).length;
+  // Update progress bar
+  const total = 12;
   document.getElementById('progress-count').textContent = `${filledCount} / ${total}`;
   const pct = (filledCount / total) * 100;
   const fill = document.getElementById('progress-bar-fill');
   fill.style.width = `${pct}%`;
   fill.setAttribute('aria-valuenow', filledCount);
 
-  // Update override console current-value labels
-  updateOverrideCurrentVals(slots);
-}
-
-function updateOverrideCurrentVals(slots) {
-  const mapping = {
-    'ov-data-risk-cur': slots.Data_Risk,
-    'ov-int-risk-cur':  slots.Integration_Risk,
-    'ov-tech-risk-cur': slots.Tech_Literacy_Risk,
-  };
-  for (const [id, val] of Object.entries(mapping)) {
-    const el = document.getElementById(id);
-    if (el) el.textContent = val ?? '—';
+  // Update compound display
+  const compoundEl = document.getElementById('compound-display');
+  if (compoundEl) {
+    compoundEl.textContent = `Compound: ×${compoundMultiplier.toFixed(3)} (${effectiveBufferPercent})`;
   }
 }
 
 // ─── UI: Price Report ─────────────────────────────────────────────────────────
 
-function showPriceReport(breakdown, delta = null) {
+function showPriceReport(breakdown) {
   document.getElementById('report-placeholder').style.display = 'none';
   document.getElementById('report-content').hidden = false;
 
   // Hero price
   document.getElementById('price-amount').textContent = formatVND(breakdown.recommendedPrice);
-
-  const strategyNote = breakdown._debug?.strategy === 'FARMER'
-    ? 'Recurring subscription pricing (FARMER strategy)'
-    : 'Upfront revenue pricing (HUNTER strategy)';
-  document.getElementById('price-note').textContent = strategyNote;
+  document.getElementById('price-note').textContent = `COCOMO Compound Multiplier: ×${breakdown._debug?.compoundMultiplier?.toFixed(3) || '—'}`;
 
   // Price delta badge
   const deltaEl = document.getElementById('price-delta');
-  if (delta && delta.delta !== 0) {
-    const sign = delta.delta > 0 ? '+' : '';
-    deltaEl.textContent = `Override Δ: ${sign}${formatVND(delta.delta)} (${delta.deltaPercent})`;
-    deltaEl.className = `visible ${delta.delta < 0 ? 'negative' : 'positive'}`;
-  } else {
-    deltaEl.className = '';
-  }
+  deltaEl.className = '';
 
   // Narrative
   const narrativeEl = document.getElementById('narrative-list');
@@ -293,7 +244,6 @@ function showPriceReport(breakdown, delta = null) {
     <div class="margin-why">${esc(m.why)}</div>
   `;
 
-  // Scroll report into view
   document.getElementById('report-scroll').scrollTop = 0;
 }
 
@@ -306,14 +256,13 @@ function appendAuditLogs(logs) {
   const container = document.getElementById('audit-log');
   card.hidden = false;
 
-  // Only append the newest entry (last in array)
   const log = logs[logs.length - 1];
   const entry = document.createElement('div');
   entry.className = 'audit-entry';
   entry.innerHTML = `
     <div class="audit-field">${esc(log.field)}</div>
     <div class="audit-change">
-      ${esc(String(log.aiOriginalValue ?? 'auto'))} → <strong>${esc(String(log.overriddenValue))}</strong>
+      ${esc(String(log.originalValue ?? 'auto'))} → <strong>${esc(String(log.newValue))}</strong>
       &nbsp;by ${esc(log.overriddenBy)}
     </div>
     <div class="audit-reason">${esc(log.reason)}</div>
@@ -327,7 +276,7 @@ async function checkHealth() {
   try {
     const data = await apiGet('/api/health');
     document.getElementById('provider-name').textContent =
-      `${data.provider} / ${data.model ?? 'default'}`;
+      `${data.provider} / ${data.version ?? 'default'}`;
     console.log('[KHantix] Health OK:', data);
   } catch (err) {
     document.getElementById('provider-name').textContent = 'OFFLINE';
@@ -353,15 +302,19 @@ async function sendChat(message) {
     hideTyping();
     appendMessage('ai', data.nextQuestion);
 
-    // Update state
-    state.slots = data.updatedSlots;
-    state.filledSlots = data.filledSlots;
-    state.missingSlots = data.missingSlots;
+    // Update state with COCOMO EM data
+    state.effortMultipliers = data.effortMultipliers || [];
+    state.compoundMultiplier = data.compoundMultiplier || 1.0;
     state.allSlotsFilled = data.allSlotsFilled;
 
-    updateSlotTracker(data.updatedSlots, data.filledSlots);
+    updateEMTracker(
+      data.effortMultipliers || [],
+      data.filledCount || 0,
+      data.compoundMultiplier || 1.0,
+      data.effectiveBufferPercent || '+0.0%'
+    );
 
-    // If all slots are filled, auto-calculate
+    // If all EMs are filled, auto-calculate
     if (data.allSlotsFilled) {
       await runCalculate();
     }
@@ -378,14 +331,18 @@ async function sendChat(message) {
 // ─── API: Calculate ───────────────────────────────────────────────────────────
 
 async function runCalculate() {
+  const manDaysVal = document.getElementById('ov-mandays')?.value;
+  const roleVal = document.getElementById('ov-role')?.value;
+
   const payload = {
     sessionId: state.sessionId,
-    ...state.calcParams,
+    estimatedManDays: manDaysVal ? parseInt(manDaysVal, 10) : undefined,
+    primaryRole: roleVal || 'Senior',
   };
 
-  // Remove null values so server uses smart defaults
+  // Remove undefined values
   for (const key of Object.keys(payload)) {
-    if (payload[key] === null) delete payload[key];
+    if (payload[key] === undefined) delete payload[key];
   }
 
   try {
@@ -393,24 +350,10 @@ async function runCalculate() {
     state.priceBreakdown = data.breakdown;
     state.originalPrice = data.breakdown.recommendedPrice;
     showPriceReport(data.breakdown);
-
-    // Sync override defaults
-    syncOverrideDefaults(data.params ?? {});
   } catch (err) {
     console.error('[Calculate] Error:', err);
     appendMessage('ai', '⚠️ Price calculation encountered an error. Please check the server.');
   }
-}
-
-function syncOverrideDefaults(params) {
-  if (params.estimatedManDays) {
-    document.getElementById('ov-mandays').placeholder = params.estimatedManDays;
-  }
-  if (params.primaryRole) {
-    document.getElementById('ov-role').value = params.primaryRole;
-  }
-  document.getElementById('ov-strategy').value = params.strategy ?? 'HUNTER';
-  document.getElementById('ov-strategy-cur').textContent = params.strategy ?? 'HUNTER';
 }
 
 // ─── API: Override ────────────────────────────────────────────────────────────
@@ -426,23 +369,13 @@ async function applyOverride() {
     return;
   }
 
-  const dataRisk    = document.getElementById('ov-data-risk').value;
-  const intRisk     = document.getElementById('ov-int-risk').value;
-  const techRisk    = document.getElementById('ov-tech-risk').value;
-  const strategy    = document.getElementById('ov-strategy').value;
-  const manDaysVal  = document.getElementById('ov-mandays').value;
-  const role        = document.getElementById('ov-role').value;
+  const manDaysVal = document.getElementById('ov-mandays').value;
+  const role = document.getElementById('ov-role').value;
 
-  const slotOverrides = {};
-  if (dataRisk) slotOverrides['Data_Risk'] = dataRisk;
-  if (intRisk)  slotOverrides['Integration_Risk'] = intRisk;
-  if (techRisk) slotOverrides['Tech_Literacy_Risk'] = techRisk;
-
-  const calcOverrides = { strategy, primaryRole: role };
+  const calcOverrides = { primaryRole: role };
   if (manDaysVal) calcOverrides['estimatedManDays'] = parseInt(manDaysVal, 10);
 
   const reasons = {};
-  for (const field of Object.keys(slotOverrides)) reasons[field] = reason;
   for (const field of Object.keys(calcOverrides)) reasons[field] = reason;
 
   const btn = document.getElementById('override-apply-btn');
@@ -451,27 +384,22 @@ async function applyOverride() {
 
   try {
     const data = await apiPost('/api/override', {
-      sessionId:    state.sessionId,
+      sessionId: state.sessionId,
       overriddenBy: 'Pre-sales',
-      slotOverrides,
       calcOverrides,
       reasons,
     });
 
     state.priceBreakdown = data.breakdown;
-
-    // Update slot tracker with effective slots
-    if (data.effectiveSlots) {
-      updateSlotTracker(data.effectiveSlots, Object.keys(data.effectiveSlots));
-    }
-
-    showPriceReport(data.breakdown, data.priceDelta);
+    showPriceReport(data.breakdown);
     appendAuditLogs(data.overrideLogs);
 
-    // Update override current-val labels
-    document.getElementById('ov-strategy-cur').textContent = strategy;
+    // Update EM tracker if server returns updated multipliers
+    if (data.effortMultipliers) {
+      const filled = data.effortMultipliers.filter(m => m.value !== null).length;
+      updateEMTracker(data.effortMultipliers, filled, state.compoundMultiplier, '');
+    }
 
-    // Clear reason field
     document.getElementById('ov-reason').value = '';
   } catch (err) {
     console.error('[Override] Error:', err);
@@ -485,14 +413,11 @@ async function applyOverride() {
 // ─── Init ─────────────────────────────────────────────────────────────────────
 
 function init() {
-  // Generate session
   state.sessionId = generateSessionId();
   document.getElementById('session-badge').textContent = state.sessionId;
 
-  // Health check to get provider name
   checkHealth();
 
-  // ── Event: Send button ──
   document.getElementById('send-btn').addEventListener('click', () => {
     const input = document.getElementById('user-input');
     const msg = input.value.trim();
@@ -502,7 +427,6 @@ function init() {
     sendChat(msg);
   });
 
-  // ── Event: Enter key (Shift+Enter = newline) ──
   document.getElementById('user-input').addEventListener('keydown', (e) => {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
@@ -510,21 +434,13 @@ function init() {
     }
   });
 
-  // ── Event: Auto-resize textarea ──
   document.getElementById('user-input').addEventListener('input', (e) => {
     autoResize(e.target);
   });
 
-  // ── Event: Override apply ──
   document.getElementById('override-apply-btn').addEventListener('click', applyOverride);
 
-  // ── Event: Strategy select real-time update ──
-  document.getElementById('ov-strategy').addEventListener('change', (e) => {
-    document.getElementById('ov-strategy-cur').textContent = e.target.value;
-  });
-
-  console.log('[KHantix] App initialized. Session:', state.sessionId);
+  console.log('[KHantix] COCOMO Edition initialized. Session:', state.sessionId);
 }
 
-// Start the app
 document.addEventListener('DOMContentLoaded', init);

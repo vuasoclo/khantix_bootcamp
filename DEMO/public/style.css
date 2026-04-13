@@ -182,7 +182,7 @@ body {
 /* ── Workspace (3-column layout) ───────────────────────────────────────────── */
 #workspace {
   display: grid;
-  grid-template-columns: 380px 300px 1fr;
+  grid-template-columns: 360px 360px 1fr;
   gap: 12px;
   padding: 12px;
   height: calc(100vh - 56px);
@@ -438,12 +438,12 @@ body {
 #progress-count {
   font-family: 'Outfit', sans-serif;
   font-weight: 700;
-  font-size: 13px;
+  font-size: 14px;
   color: var(--teal);
 }
 
 .progress-bar-track {
-  height: 4px;
+  height: 6px;
   background: var(--bg-card);
   border-radius: 10px;
   overflow: hidden;
@@ -470,15 +470,15 @@ body {
 
 /* SIMT group label */
 .slot-group-label {
-  font-size: 10px;
+  font-size: 11px;
   font-weight: 700;
   letter-spacing: 1px;
   text-transform: uppercase;
   color: var(--text-muted);
-  padding: 6px 4px 2px;
+  padding: 12px 4px 6px;
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 8px;
 }
 
 .slot-group-label::after {
@@ -492,14 +492,22 @@ body {
 .slot-card {
   background: var(--bg-card);
   border: 1px solid var(--border-card);
-  border-radius: var(--radius-md);
-  padding: 9px 12px;
+  border-radius: var(--radius-lg);
+  padding: 14px 18px;
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 14px;
   transition: var(--transition);
   position: relative;
   overflow: hidden;
+  min-height: 72px;
+}
+
+.slot-card:hover {
+  background: var(--bg-panel-hover);
+  border-color: var(--border-active);
+  transform: translateX(4px);
+  cursor: pointer;
 }
 
 .slot-card::before {
@@ -545,19 +553,19 @@ body {
 }
 
 .slot-icon {
-  font-size: 15px;
+  font-size: 20px;
   flex-shrink: 0;
-  width: 22px;
+  width: 28px;
   text-align: center;
 }
 
 .slot-content { flex: 1; min-width: 0; }
 
 .slot-name {
-  font-size: 11px;
-  font-weight: 500;
+  font-size: 13px;
+  font-weight: 600;
   color: var(--text-secondary);
-  margin-bottom: 2px;
+  margin-bottom: 4px;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -565,10 +573,20 @@ body {
 
 .slot-value {
   font-family: 'Outfit', sans-serif;
-  font-weight: 600;
-  font-size: 13px;
+  font-weight: 700;
+  font-size: 16px;
   color: var(--text-muted);
   transition: color 0.3s;
+}
+
+.slot-confidence {
+  font-size: 10px;
+  font-weight: 500;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-top: 2px;
+  opacity: 0.8;
 }
 
 .slot-card[data-risk="HIGH"] .slot-value     { color: var(--risk-high); }

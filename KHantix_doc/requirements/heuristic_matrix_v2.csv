@@ -1,0 +1,61 @@
+﻿Row_ID,EM_ID,EM_Name,Dictionary_Param,User_Symptom_Keywords,EM_Default,EM_Min,EM_Max,Reasoning_Hint
+1,EM_D1,Data Format Complexity,Data Format,"['SQL', 'database', 'cơ sở dữ liệu chuẩn', 'PostgreSQL', 'MySQL']",1.0,1.0,1.2,"Dữ liệu đã nằm trong RDBMS chuẩn, không cần ETL pipeline chuyển đổi."
+2,EM_D1,Data Format Complexity,Data Format,"['API JSON', 'REST API', 'dữ liệu có cấu trúc', 'XML chuẩn']",1.02,1.0,1.2,"Dữ liệu có cấu trúc rõ ràng, chỉ cần adapter nhẹ."
+3,EM_D1,Data Format Complexity,Data Format,"['Excel', 'file Excel', 'mỗi chi nhánh 1 file', 'Google Sheets', 'spreadsheet']",1.15,1.0,1.2,"Excel không chuẩn hóa, mỗi chi nhánh 1 format riêng → cần ETL pipeline chuyển đổi."
+4,EM_D1,Data Format Complexity,Data Format,"['PDF', 'scan', 'giấy', 'viết tay', 'hình chụp', 'ảnh hóa đơn']",1.2,1.0,1.2,"PDF/scan → cần OCR + validation thủ công, tỷ lệ lỗi rất cao."
+5,EM_D1,Data Format Complexity,Data Format,"['chưa biết', 'hỏi lại IT', 'để kiểm tra', 'không rõ format']",1.1,1.0,1.2,Không rõ format → dùng giá trị trung bình ngành. Cần xác nhận thêm.
+6,EM_D2,Data Volume Scale,Data Volume,"['1-2 năm', 'vài trăm dòng', 'mới mở', 'startup', 'ít dữ liệu']",1.0,1.0,1.25,"Volume nhỏ, migration nhanh, không cần batch processing."
+7,EM_D2,Data Volume Scale,Data Volume,"['2-3 năm', 'vài ngàn dòng', 'không nhiều lắm', 'dưới 10 ngàn']",1.05,1.0,1.25,"Volume vừa phải, migration standard, rủi ro thấp."
+8,EM_D2,Data Volume Scale,Data Volume,"['5-10 năm', 'chục ngàn dòng', 'nhiều chi nhánh', 'lâu năm']",1.18,1.0,1.25,"Volume lớn → cần batch processing, dedup, phân trang migration."
+9,EM_D2,Data Volume Scale,Data Volume,"['trên 10 năm', 'trăm ngàn dòng', 'cả triệu record', 'kho dữ liệu khổng lồ']",1.25,1.0,1.25,"Volume rất lớn → cần data warehouse strategy, incremental migration, parallel processing."
+10,EM_D2,Data Volume Scale,Data Volume,"['chưa biết', 'hỏi lại IT', 'để kiểm tra', 'không rõ bao nhiêu']",1.12,1.0,1.25,Không rõ volume → dùng giá trị trung bình ngành (~5 năm dữ liệu).
+11,EM_D3,Data Integrity Quality,Data Integrity,"['dữ liệu sạch', 'đã validate', 'có quy trình nhập', 'kiểm tra đầu vào']",1.0,1.0,1.15,"Dữ liệu đã có quy trình QA, ít lỗi, migration an toàn."
+12,EM_D3,Data Integrity Quality,Data Integrity,"['tương đối gọn', 'có chuẩn nhập liệu', 'ít sai sót', 'đã audit']",1.03,1.0,1.15,Dữ liệu khá gọn nhưng có thể có edge case nhỏ.
+13,EM_D3,Data Integrity Quality,Data Integrity,"['dữ liệu rác', 'trùng lặp', 'thiếu trường', 'nhập lung tung', 'mỗi người nhập 1 kiểu']",1.12,1.0,1.15,Dữ liệu bẩn → cần cleansing pipeline + dedup + manual review.
+14,EM_D3,Data Integrity Quality,Data Integrity,"['không ai quản lý', 'chưa bao giờ dọn', 'sai be bét', 'data mấy đời rồi']",1.15,1.0,1.15,Dữ liệu cực rác → phải build data profiling + cleansing + manual validation.
+15,EM_D3,Data Integrity Quality,Data Integrity,"['chưa biết', 'hỏi lại IT', 'không rõ chất lượng', 'để kiểm tra lại']",1.07,1.0,1.15,"Không rõ chất lượng → giả định trung bình, cần data profiling trước khi xác nhận."
+16,EM_I1,API Availability,API Availability,"['có API', 'mở cổng sẵn', 'REST API', 'có tài liệu API', 'webhook']",1.0,1.0,1.2,"API sẵn có, tài liệu đầy đủ → tích hợp nhanh, ít rủi ro."
+17,EM_I1,API Availability,API Availability,"['có file export', 'xuất được CSV', 'có báo cáo tự động', 'export JSON']",1.05,1.0,1.2,Không có API trực tiếp nhưng có cơ chế export → cần adapter layer nhẹ.
+18,EM_I1,API Availability,API Availability,"['đóng hoàn toàn', 'không cho kết nối', 'vendor lock-in', 'hệ thống đóng']",1.18,1.0,1.2,Hệ thống đóng kín → phải reverse-engineer hoặc screen scraping.
+19,EM_I1,API Availability,API Availability,"['không biết mở cổng', 'vendor cũ bỏ rồi', 'hệ thống cũ không hỗ trợ', 'chẳng ai biết']",1.2,1.0,1.2,"Vendor bỏ rơi, không tài liệu → rủi ro tích hợp cực cao, cần middleware custom."
+20,EM_I1,API Availability,API Availability,"['chưa biết', 'hỏi lại IT', 'để hỏi bên kỹ thuật', 'không chắc']",1.1,1.0,1.2,Không rõ API → giả định trung bình ngành. Pre-sales cần confirm với IT khách hàng.
+21,EM_I2,Legacy System Age,Legacy System Age,"['mới triển khai', '1-2 năm', 'hệ thống mới', 'vừa mua phần mềm']",1.0,1.0,1.15,"Hệ thống mới → tài liệu còn đầy đủ, vendor còn hỗ trợ, API hiện đại."
+22,EM_I2,Legacy System Age,Legacy System Age,"['3-5 năm', 'còn bảo hành', 'vendor còn hỗ trợ', 'phiên bản gần đây']",1.03,1.0,1.15,Hệ thống tầm trung → documentation phần lớn còn hợp lệ.
+23,EM_I2,Legacy System Age,Legacy System Age,"['10 năm', 'hệ thống cũ lắm', 'từ đời ông trước', 'chẳng ai biết bên trong']",1.12,1.0,1.15,"Hệ thống cũ → documentation chết, tech debt tích lũy, risk tích hợp cao."
+24,EM_I2,Legacy System Age,Legacy System Age,"['15-20 năm', 'không ai maintain', 'phần mềm tự viết lâu lắm', 'từ thời Windows XP']",1.15,1.0,1.15,"Legacy cực nặng → vendor chết, không tài liệu, reverse-engineer toàn bộ."
+25,EM_I2,Legacy System Age,Legacy System Age,"['chưa biết', 'hỏi lại IT', 'không nhớ xài từ bao giờ', 'để hỏi']",1.07,1.0,1.15,Không rõ tuổi hệ thống → giả định ~7 năm (trung bình ngành SMB Việt Nam).
+26,EM_T1,End-user Age Profile,End-user Age,"['nhân viên trẻ', 'Gen Z', '20-30 tuổi', 'thạo công nghệ', 'quen dùng app']",1.0,1.0,1.15,"Nhân viên trẻ → learning curve ngắn, tự khám phá UI, ít cần training."
+27,EM_T1,End-user Age Profile,End-user Age,"['30-40 tuổi', 'biết xài phần mềm', 'quen công nghệ', 'dùng nhiều app']",1.03,1.0,1.15,Nhóm tuổi trung bình → cần training chuẩn nhưng tiếp thu OK.
+28,EM_T1,End-user Age Profile,End-user Age,"['40-50 tuổi', 'không quen công nghệ', 'chỉ biết Excel cơ bản', 'ngại thay đổi']",1.1,1.0,1.15,Nhóm lớn tuổi → cần training tăng cường + tài liệu hướng dẫn chi tiết.
+29,EM_T1,End-user Age Profile,End-user Age,"['trên 50 tuổi', 'sắp về hưu', 'chưa bao giờ dùng máy tính', 'toàn viết tay']",1.15,1.0,1.15,"Nhóm 50+ → thời gian training gấp đôi, cần 1-on-1 coaching + tài liệu in giấy."
+30,EM_T1,End-user Age Profile,End-user Age,"['chưa biết', 'hỏi lại HR', 'để hỏi', 'không rõ độ tuổi']",1.07,1.0,1.15,Không rõ profile nhân sự → giả định trung bình (~35 tuổi).
+31,EM_T2,Prior System Experience,Prior System Experience,"['đã dùng ERP', 'đã dùng phần mềm', 'quen CRM', 'đã số hóa trước', 'SAP']",1.0,1.0,1.1,Đã có kinh nghiệm dùng app quản lý → learning curve ngắn.
+32,EM_T2,Prior System Experience,Prior System Experience,"['dùng app đơn giản', 'biết xài Zalo OA', 'có dùng Google Form', 'quen smartphone']",1.03,1.0,1.1,Kinh nghiệm cơ bản → cần vài buổi training đặc thù.
+33,EM_T2,Prior System Experience,Prior System Experience,"['lần đầu số hóa', 'toàn ghi sổ', 'chưa dùng phần mềm bao giờ', 'tay ngang']",1.08,1.0,1.1,"Lần đầu số hóa → learning curve dài, cần change management strategy."
+34,EM_T2,Prior System Experience,Prior System Experience,"['phản đối thay đổi', 'nhân viên chống đối', 'không muốn dùng', 'lãnh đạo ép xuống']",1.1,1.0,1.1,Kháng cự chuyển đổi → cần change management + phải có champion nội bộ.
+35,EM_T2,Prior System Experience,Prior System Experience,"['chưa biết', 'hỏi lại', 'để hỏi nhân viên', 'không chắc']",1.05,1.0,1.1,Không rõ kinh nghiệm → giả định trung bình ngành SMB VN.
+36,EM_B1,Deployment Location,Deployment Location,"['remote', 'làm từ xa', 'online', 'không cần đến chỗ', 'cloud']",1.0,1.0,1.3,"Remote deployment → không phát sinh chi phí đi lại, ăn ở, logistics."
+37,EM_B1,Deployment Location,Deployment Location,"['hybrid', 'vài lần đến', 'TP.HCM', 'gần công ty', 'cùng thành phố']",1.1,1.0,1.3,"Hybrid → ít chi phí di chuyển, chỉ onsite vài milestone quan trọng."
+38,EM_B1,Deployment Location,Deployment Location,"['onsite', 'phải cử người xuống', 'ở tỉnh', 'nhà máy', 'trong khu công nghiệp']",1.25,1.0,1.3,Onsite tỉnh → chi phí đi lại + ăn ở + logistics tăng đáng kể.
+39,EM_B1,Deployment Location,Deployment Location,"['full onsite', 'đóng tại chỗ', 'vùng sâu vùng xa', 'ngoài đảo', 'biên giới']",1.3,1.0,1.3,"Full onsite vùng khó → chi phí di chuyển + ăn ở rất lớn, hạn chế nhân sự luân chuyển."
+40,EM_B1,Deployment Location,Deployment Location,"['chưa biết', 'hỏi lại', 'chưa xác định', 'tùy tình hình']",1.15,1.0,1.3,Chưa rõ vị trí → giả định hybrid (trung bình ngành).
+41,EM_B2,Hardware Dependency,Hardware Dependency,"['không cần phần cứng', 'chỉ web', 'thuần phần mềm', 'SaaS', 'web app']",1.0,1.0,1.15,Không phụ thuộc phần cứng bên thứ 3 → giá vốn cố định thấp.
+42,EM_B2,Hardware Dependency,Hardware Dependency,"['cần SMS', 'gửi tin nhắn', 'notification', 'email gateway']",1.03,1.0,1.15,"SMS/Email gateway → chi phí biến đổi nhỏ, tích hợp nhẹ."
+43,EM_B2,Hardware Dependency,Hardware Dependency,"['máy quét', 'barcode scanner', 'RFID', 'IoT', 'kho tự động']",1.1,1.0,1.15,"Phần cứng chuyên biệt → cần driver, tích hợp phức tạp, chi phí mua thiết bị."
+44,EM_B2,Hardware Dependency,Hardware Dependency,"['bản đồ GPS', 'camera AI', 'máy chấm công vân tay', 'thiết bị đo lường', 'POS']",1.15,1.0,1.15,"Nhiều thiết bị bên thứ 3 → giá cứng tăng cao, cần driver + SDK + testing riêng."
+45,EM_B2,Hardware Dependency,Hardware Dependency,"['chưa biết', 'hỏi lại', 'để liệt kê sau', 'không chắc cần gì']",1.07,1.0,1.15,Chưa rõ dependency → giả định có 1-2 dịch vụ bên thứ 3 nhẹ.
+46,EM_C1,Rush Factor,Rush Factor,"['không gấp', 'từ từ', 'kế hoạch dài hạn', '6 tháng', 'linh hoạt timeline']",1.0,1.0,1.5,"Không gấp → team làm theo kế hoạch chuẩn, không OT, không burn-out."
+47,EM_C1,Rush Factor,Rush Factor,"['3-4 tháng', 'deadline flexible', 'có thể đàm phán', 'bình thường']",1.1,1.0,1.5,Timeline vừa phải → có thể cần tăng tốc nhẹ ở vài phase.
+48,EM_C1,Rush Factor,Rush Factor,"['gấp lắm', '1-2 tháng', 'phải xong trước Tết', 'deadline cứng', 'không đổi được']",1.35,1.0,1.5,"Gấp → team phải OT, thêm nhân sự, rủi ro quality giảm → buffer cao."
+49,EM_C1,Rush Factor,Rush Factor,"['siêu gấp', '2 tuần', '1 tháng', 'phạt hợp đồng nếu trễ', 'khách VIP đòi gấp']",1.5,1.0,1.5,Siêu gấp → OT toàn bộ team + thuê ngoài + risk quality rất cao.
+50,EM_C1,Rush Factor,Rush Factor,"['chưa biết', 'hỏi lại sếp', 'để bàn timeline', 'chưa xác định']",1.15,1.0,1.5,Chưa rõ deadline → giả định timeline trung bình (~3-4 tháng).
+51,EM_C2,Client Logo Size,Client Logo Size,"['tập đoàn lớn', 'enterprise', 'Fortune 500', 'công ty niêm yết', 'ngàn nhân viên']",0.8,0.8,1.0,Enterprise → giảm giá chiến lược để lấy logo + upsell dài hạn.
+52,EM_C2,Client Logo Size,Client Logo Size,"['công ty vừa', 'mid-market', '100-500 nhân viên', 'đang phát triển']",0.9,0.8,1.0,"Mid-market → giảm nhẹ, vẫn có potential upsell."
+53,EM_C2,Client Logo Size,Client Logo Size,"['SMB', 'công ty nhỏ', 'dưới 50 người', 'start-up nhỏ', 'mới thành lập']",1.0,0.8,1.0,"SMB → không giảm giá chiến lược, giá chuẩn, margin giữ nguyên."
+54,EM_C2,Client Logo Size,Client Logo Size,"['hộ kinh doanh', 'freelancer', 'tổ chức nhỏ', 'cửa hàng', 'tiệm']",1.0,0.8,1.0,"Micro-business → giá chuẩn, không giảm, risk thanh toán cao hơn."
+55,EM_C2,Client Logo Size,Client Logo Size,"['chưa biết', 'hỏi lại', 'không rõ quy mô', 'để tìm hiểu thêm']",0.95,0.8,1.0,"Chưa rõ quy mô → giả định SMB trung bình, giảm nhẹ mà thôi."
+56,EM_C3,Payment Term Discount,Payment Term,"['trả đứt', 'thanh toán 1 lần', 'trả ngay', 'trả hết trước', 'chuyển khoản 100%']",0.05,0.0,0.05,"Trả đứt → giảm 5% (cashflow risk-free, không cần theo dõi công nợ)."
+57,EM_C3,Payment Term Discount,Payment Term,"['trả 70% trước', 'ứng trước phần lớn', 'trả trước 80%', 'tạm ứng nhiều']",0.03,0.0,0.05,Trả trước phần lớn → giảm 3% (cashflow risk thấp).
+58,EM_C3,Payment Term Discount,Payment Term,"['trả góp', 'chia làm 3-4 lần', 'trả theo milestone', 'công nợ 60 ngày']",0.01,0.0,0.05,"Trả góp → giảm 1% (cashflow risk trung bình, chi phí theo dõi công nợ)."
+59,EM_C3,Payment Term Discount,Payment Term,"['trả sau hết', 'công nợ 90 ngày', 'trả khi nào có', 'muốn nợ lâu']",0.0,0.0,0.05,Trả sau hoàn toàn → không giảm giá (cashflow risk cao nhất).
+60,EM_C3,Payment Term Discount,Payment Term,"['chưa biết', 'hỏi lại kế toán', 'tùy sếp', 'bàn sau']",0.02,0.0,0.05,Chưa rõ payment term → giả định trả theo milestone (giảm 2%).

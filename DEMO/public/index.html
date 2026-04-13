@@ -71,102 +71,149 @@
       </div>
     </section>
 
-    <!-- ──────────────────────────── PANEL 2: SLOT TRACKER ─── -->
-    <section class="panel" id="slot-panel" aria-label="SIMT Risk Intelligence">
+    <!-- ──────────────────────────── PANEL 2: EM TRACKER ─── -->
+    <section class="panel" id="slot-panel" aria-label="COCOMO Effort Multipliers">
 
       <div class="panel-header">
         <div class="panel-title">
           <span class="icon">🧠</span>
-          Risk Intelligence
+          Effort Multipliers
         </div>
       </div>
 
       <div id="slot-progress-wrap">
         <div class="progress-label">
-          <span>Slots filled</span>
-          <span id="progress-count">0 / 8</span>
+          <span>EMs estimated</span>
+          <span id="progress-count">0 / 12</span>
         </div>
         <div class="progress-bar-track">
-          <div id="progress-bar-fill" role="progressbar" aria-valuenow="0" aria-valuemin="0" aria-valuemax="8"></div>
+          <div id="progress-bar-fill" role="progressbar" aria-valuenow="0" aria-valuemin="0" aria-valuemax="12"></div>
+        </div>
+        <div id="compound-display" style="margin-top:6px;font-size:11px;color:var(--text-secondary);text-align:right;">
+          Compound: ×1.000 (+0.0%)
         </div>
       </div>
 
       <div id="slot-cards">
-        <!-- SIMT: Migration -->
-        <div class="slot-group-label">M — Migration</div>
-        <div class="slot-card" id="slot-Data_Risk" data-slot="Data_Risk" data-risk="null">
-          <span class="slot-icon">🗄️</span>
+        <!-- Data Risk Group -->
+        <div class="slot-group-label">D — Data Risk</div>
+        <div class="slot-card" id="slot-EM_D1" data-em="EM_D1" data-status="empty">
+          <span class="slot-icon">📄</span>
           <div class="slot-content">
-            <div class="slot-name">Data Migration Quality</div>
+            <div class="slot-name">Data Format</div>
             <div class="slot-value">—</div>
+            <div class="slot-confidence"></div>
+          </div>
+          <span class="slot-indicator"></span>
+        </div>
+        <div class="slot-card" id="slot-EM_D2" data-em="EM_D2" data-status="empty">
+          <span class="slot-icon">📊</span>
+          <div class="slot-content">
+            <div class="slot-name">Data Volume</div>
+            <div class="slot-value">—</div>
+            <div class="slot-confidence"></div>
+          </div>
+          <span class="slot-indicator"></span>
+        </div>
+        <div class="slot-card" id="slot-EM_D3" data-em="EM_D3" data-status="empty">
+          <span class="slot-icon">🧹</span>
+          <div class="slot-content">
+            <div class="slot-name">Data Integrity</div>
+            <div class="slot-value">—</div>
+            <div class="slot-confidence"></div>
           </div>
           <span class="slot-indicator"></span>
         </div>
 
-        <!-- SIMT: Integration -->
-        <div class="slot-group-label">I — Integration</div>
-        <div class="slot-card" id="slot-Integration_Risk" data-slot="Integration_Risk" data-risk="null">
+        <!-- Integration Risk Group -->
+        <div class="slot-group-label">I — Integration Risk</div>
+        <div class="slot-card" id="slot-EM_I1" data-em="EM_I1" data-status="empty">
           <span class="slot-icon">🔌</span>
           <div class="slot-content">
-            <div class="slot-name">System Integration</div>
+            <div class="slot-name">API Availability</div>
             <div class="slot-value">—</div>
+            <div class="slot-confidence"></div>
+          </div>
+          <span class="slot-indicator"></span>
+        </div>
+        <div class="slot-card" id="slot-EM_I2" data-em="EM_I2" data-status="empty">
+          <span class="slot-icon">🏚️</span>
+          <div class="slot-content">
+            <div class="slot-name">Legacy System Age</div>
+            <div class="slot-value">—</div>
+            <div class="slot-confidence"></div>
           </div>
           <span class="slot-indicator"></span>
         </div>
 
-        <!-- SIMT: Training -->
-        <div class="slot-group-label">T — Training</div>
-        <div class="slot-card" id="slot-Tech_Literacy_Risk" data-slot="Tech_Literacy_Risk" data-risk="null">
+        <!-- Training Risk Group -->
+        <div class="slot-group-label">T — Training Risk</div>
+        <div class="slot-card" id="slot-EM_T1" data-em="EM_T1" data-status="empty">
+          <span class="slot-icon">👴</span>
+          <div class="slot-content">
+            <div class="slot-name">End-user Age</div>
+            <div class="slot-value">—</div>
+            <div class="slot-confidence"></div>
+          </div>
+          <span class="slot-indicator"></span>
+        </div>
+        <div class="slot-card" id="slot-EM_T2" data-em="EM_T2" data-status="empty">
           <span class="slot-icon">👩‍🏫</span>
           <div class="slot-content">
-            <div class="slot-name">User Tech Literacy</div>
+            <div class="slot-name">Prior System Exp</div>
             <div class="slot-value">—</div>
+            <div class="slot-confidence"></div>
           </div>
           <span class="slot-indicator"></span>
         </div>
 
-        <!-- SIMT: Setup -->
-        <div class="slot-group-label">S — Setup</div>
-        <div class="slot-card" id="slot-Hardware_Sizing" data-slot="Hardware_Sizing" data-risk="null">
+        <!-- Base Cost Group -->
+        <div class="slot-group-label">B — Base Cost</div>
+        <div class="slot-card" id="slot-EM_B1" data-em="EM_B1" data-status="empty">
+          <span class="slot-icon">📍</span>
+          <div class="slot-content">
+            <div class="slot-name">Deployment Loc.</div>
+            <div class="slot-value">—</div>
+            <div class="slot-confidence"></div>
+          </div>
+          <span class="slot-indicator"></span>
+        </div>
+        <div class="slot-card" id="slot-EM_B2" data-em="EM_B2" data-status="empty">
           <span class="slot-icon">🖥️</span>
           <div class="slot-content">
-            <div class="slot-name">Hardware Tier</div>
+            <div class="slot-name">HW Dependency</div>
             <div class="slot-value">—</div>
+            <div class="slot-confidence"></div>
           </div>
           <span class="slot-indicator"></span>
         </div>
 
-        <!-- Commercial -->
-        <div class="slot-group-label">Commercial</div>
-        <div class="slot-card" id="slot-Scope_Granularity" data-slot="Scope_Granularity" data-risk="null">
-          <span class="slot-icon">📐</span>
-          <div class="slot-content">
-            <div class="slot-name">Scope Granularity</div>
-            <div class="slot-value">—</div>
-          </div>
-          <span class="slot-indicator"></span>
-        </div>
-        <div class="slot-card" id="slot-Rush_Factor" data-slot="Rush_Factor" data-risk="null">
+        <!-- Commercial Group -->
+        <div class="slot-group-label">C — Commercial</div>
+        <div class="slot-card" id="slot-EM_C1" data-em="EM_C1" data-status="empty">
           <span class="slot-icon">⚡</span>
           <div class="slot-content">
             <div class="slot-name">Rush Factor</div>
             <div class="slot-value">—</div>
+            <div class="slot-confidence"></div>
           </div>
           <span class="slot-indicator"></span>
         </div>
-        <div class="slot-card" id="slot-Client_Logo_Size" data-slot="Client_Logo_Size" data-risk="null">
+        <div class="slot-card" id="slot-EM_C2" data-em="EM_C2" data-status="empty">
           <span class="slot-icon">🏢</span>
           <div class="slot-content">
-            <div class="slot-name">Client Size</div>
+            <div class="slot-name">Client Logo</div>
             <div class="slot-value">—</div>
+            <div class="slot-confidence"></div>
           </div>
           <span class="slot-indicator"></span>
         </div>
-        <div class="slot-card" id="slot-Payment_Term" data-slot="Payment_Term" data-risk="null">
+        <div class="slot-card" id="slot-EM_C3" data-em="EM_C3" data-status="empty">
           <span class="slot-icon">💳</span>
           <div class="slot-content">
             <div class="slot-name">Payment Term</div>
             <div class="slot-value">—</div>
+            <div class="slot-confidence"></div>
           </div>
           <span class="slot-indicator"></span>
         </div>
@@ -190,7 +237,7 @@
           <div class="placeholder-ring">⏳</div>
           <h3>Awaiting Analysis</h3>
           <p>
-            Complete the conversation to fill all 8 risk slots. The price report will generate automatically.
+            Complete the conversation to estimate all 12 Effort Multipliers. The price report will generate automatically.
           </p>
         </div>
 

@@ -1,16 +1,19 @@
-import { RiskSlot } from '../types/risk-slot.types';
+import { EffortMultiplierEstimate } from '../types/effort-multiplier.types';
 
 // InvestigatorResponse — the JSON shape the Investigator LLM returns each turn
-export interface SlotInference {
-  slot: string;
-  inferredValue: string;
-  confidence: 'low' | 'medium' | 'high';
-  reason: string;
+// Updated for COCOMO Effort Multiplier model
+
+export interface EMEstimateFromLLM {
+  em_id: string;
+  value: number | null;
+  confidence: 'low' | 'medium' | 'high' | null;
+  source: string;
+  evidence: string | null;
+  reasoning: string | null;
 }
 
 export interface InvestigatorResponse {
-  updatedSlots: Partial<RiskSlot>;
+  effortMultipliers: EMEstimateFromLLM[];
   nextQuestionToUser: string;
-  inferencesMade: SlotInference[];
   allSlotsFilled: boolean;
 }
