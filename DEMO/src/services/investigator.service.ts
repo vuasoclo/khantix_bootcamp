@@ -56,10 +56,10 @@ export class InvestigatorService {
   ): Promise<{ session: EMSessionState; suggestions: string[]; done: boolean }> {
     const contract = this.strategy.build();
 
-    // Build state context showing filled/missing EMs
+    // Build state context showing filled/missing EMs with status and reasonings
     const filledEMs = session.emSet.multipliers
       .filter(m => m.value !== null)
-      .map(m => `  ${m.em_id} (${m.name}) = ${m.value} [${m.confidence}]`);
+      .map(m => `  ${m.em_id} (${m.name}) = ${m.value} [${m.confidence}] status:${m.status}\n     Last reason: ${m.reasoning || '(none)'}`);
     const missingEMs = session.emSet.multipliers
       .filter(m => m.value === null)
       .map(m => `  ${m.em_id} (${m.name}) — range: [${m.range[0]}, ${m.range[1]}]`);
@@ -94,15 +94,57 @@ Compound risk multiplier so far: ${session.emSet.compoundMultiplier.toFixed(3)}
       };
     }
 
-    // Merge AI estimates into session EM set
+    // Merge AI estimates using Action Flags (FILL / UPDATE / RETRACT)
     for (const aiEM of parsed.effortMultipliers) {
       const existing = session.emSet.multipliers.find(m => m.em_id === aiEM.em_id);
-      if (existing && aiEM.value !== null) {
-        existing.value = clamp(aiEM.value, existing.range[0], existing.range[1]);
-        existing.confidence = (aiEM.confidence as Confidence) ?? 'medium';
-        existing.source = (aiEM.source as EvidenceSource) ?? 'ai_inference_from_context';
-        existing.evidence = aiEM.evidence;
-        existing.reasoning = aiEM.reasoning;
+      if (!existing) continue;
+
+      const action = aiEM.action || 'FILL'; // backward compat
+
+      switch (action) {
+        case 'FILL':
+          if (existing.value === null && aiEM.value !== null) {
+            existing.value = clamp(aiEM.value, existing.range[0], existing.range[1]);
+            existing.confidence = (aiEM.confidence as Confidence) ?? 'medium';
+            existing.source = (aiEM.source as EvidenceSource) ?? 'ai_inference_from_context';
+            existing.evidence = aiEM.evidence ?? null;
+            existing.reasoning = aiEM.reasoning ?? null;
+            if (aiEM.reasoning) existing.reasoningHistory.push(aiEM.reasoning);
+            existing.status = 'ai_pending';
+          }
+          break;
+
+        case 'UPDATE':
+          if (aiEM.value !== null) {
+            existing.previousValue = existing.value;
+            existing.value = clamp(aiEM.value, existing.range[0], existing.range[1]);
+            existing.confidence = (aiEM.confidence as Confidence) ?? 'medium';
+            existing.source = (aiEM.source as EvidenceSource) ?? 'ai_inference_from_context';
+            existing.evidence = aiEM.evidence ?? null;
+            
+            // Add to reasoning history if it's different or meaningful
+            const newReason = aiEM.reasoning;
+            if (newReason && newReason !== existing.reasoning) {
+              existing.reasoning = newReason;
+              existing.reasoningHistory.push(newReason);
+            }
+            
+            existing.status = 'ai_pending';   // Reset to pending for re-review
+            existing.confirmedBy = null;       // Invalidate previous confirmation
+          }
+          break;
+
+        case 'RETRACT':
+          existing.previousValue = existing.value;
+          existing.value = null;
+          existing.status = 'empty';
+          existing.evidence = null;
+          if (aiEM.reasoning) {
+            existing.reasoning = `Retracted: ${aiEM.reasoning}`;
+            existing.reasoningHistory.push(`Retracted: ${aiEM.reasoning}`);
+          }
+          existing.confirmedBy = null;
+          break;
       }
     }
 

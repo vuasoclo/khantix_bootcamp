@@ -89,13 +89,36 @@ function updateEMTracker(multipliers, filledCount, compoundMultiplier, effective
 
     const valueEl = card.querySelector('.slot-value');
     const confEl = card.querySelector('.slot-confidence');
+    const evidenceEl = card.querySelector('.slot-evidence-text');
+    const reasoningEl = card.querySelector('.slot-reasoning-text');
+    const slider = card.querySelector('.slot-slider');
+    const sliderVal = card.querySelector('.slot-slider-val');
     const wasEmpty = card.dataset.status === 'empty';
 
     if (em.value !== null && em.value !== undefined) {
       valueEl.textContent = `×${em.value.toFixed(2)}`;
       if (confEl) confEl.textContent = `${CONFIDENCE_BADGE[em.confidence] || ''} ${em.confidence || ''}`;
-      card.dataset.status = 'filled';
-      card.dataset.risk = em.confidence || 'medium';
+      
+      // Set status from server (ai_pending / confirmed)
+      const status = em.status || 'ai_pending';
+      card.dataset.status = status;
+      
+      // Populate expand panel with history
+      if (evidenceEl) evidenceEl.textContent = em.evidence || '— không có trích dẫn';
+      if (reasoningEl) {
+        if (em.reasoningHistory && em.reasoningHistory.length > 0) {
+          reasoningEl.innerHTML = em.reasoningHistory
+            .map((r, i) => `<div style="margin-bottom: 6px; padding-bottom: 4px; border-bottom: 1px solid rgba(255,255,255,0.05);"><strong>H${i+1}:</strong> ${esc(r)}</div>`)
+            .join('');
+        } else {
+          reasoningEl.textContent = em.reasoning || '—';
+        }
+      }
+      
+      if (slider) {
+        slider.value = em.value;
+        if (sliderVal) sliderVal.textContent = em.value.toFixed(2);
+      }
 
       if (wasEmpty) {
         card.classList.add('filled');
@@ -105,7 +128,9 @@ function updateEMTracker(multipliers, filledCount, compoundMultiplier, effective
       valueEl.textContent = '—';
       if (confEl) confEl.textContent = '';
       card.dataset.status = 'empty';
-      card.dataset.risk = 'null';
+      card.classList.remove('expanded');
+      if (evidenceEl) evidenceEl.textContent = '—';
+      if (reasoningEl) reasoningEl.textContent = '—';
     }
   }
 
@@ -175,10 +200,10 @@ function showBaseReport(data) {
   document.getElementById('report-placeholder').style.display = 'none';
   document.getElementById('report-content').hidden = false;
 
-  // Hero: Base Price
-  document.getElementById('price-amount').textContent = formatVND(data.baseCost);
+  // Hero: Recommended Price (adjusted for risk)
+  document.getElementById('price-amount').textContent = formatVND(data.totalRecommendedPrice || data.baseCost);
   document.getElementById('price-note').textContent =
-    `Base Cost (Sàn giá) | ${data.estimatedManDays} Man-Days × ${formatVND(data.dailyRate)}/ngày (${data.primaryRole})`;
+    `Recommended Price (Đã tính rủi ro) | Base: ${formatVND(data.baseCost)}`;
 
   // Delta badge
   const deltaEl = document.getElementById('price-delta');
@@ -191,22 +216,30 @@ function showBaseReport(data) {
     <p class="narrative-para">Chi phí Nhân công: <strong>${formatVND(data.laborCost)}</strong> (${data.estimatedManDays} ngày × ${formatVND(data.dailyRate)})</p>
     <p class="narrative-para">Chi phí Server: <strong>${formatVND(data.serverCost)}</strong></p>
     <p class="narrative-para">Chi phí License: <strong>${formatVND(data.licenseCost)}</strong></p>
-    <p class="narrative-para" style="margin-top: 8px;">Compound Risk Multiplier: <strong>×${data.compoundMultiplier.toFixed(3)}</strong> (${data.effectiveBufferPercent})</p>
+    <p class="narrative-para" style="margin-top: 8px; color: var(--risk-medium);">Compound Risk Multiplier: <strong>×${data.compoundMultiplier.toFixed(3)}</strong> (${data.effectiveBufferPercent})</p>
   `;
 
-  // Cost items — filled EMs
+  // Cost items — filled EMs with REASONING HISTORY
   const costEl = document.getElementById('cost-items');
   if (data.filledEMs && data.filledEMs.length > 0) {
-    costEl.innerHTML = data.filledEMs.map(em => `
-      <div class="cost-row">
-        <div>
-          <div class="cost-label">✅ ${esc(em.em_id)} — ${esc(em.name)}</div>
-          <div class="cost-sub">${esc(em.reasoning || 'AI estimated')}</div>
-          ${em.evidence ? `<div class="cost-sub" style="font-style:italic; color: var(--accent);">"${esc(em.evidence)}"</div>` : ''}
+    costEl.innerHTML = data.filledEMs.map(em => {
+      const historyHtml = (em.reasoningHistory || [])
+        .map((r, i) => `<div class="cost-sub" style="border-left: 2px solid var(--border-card); padding-left: 8px; margin-top: 4px;">Turn ${i+1}: ${esc(r)}</div>`)
+        .join('');
+
+      return `
+        <div class="cost-row" style="flex-direction: column; align-items: flex-start; gap: 4px;">
+          <div style="display: flex; justify-content: space-between; width: 100%;">
+            <div class="cost-label">✅ ${esc(em.em_id)} — ${esc(em.name)}</div>
+            <div class="cost-amount">×${em.value?.toFixed(2) || '—'} <span style="font-size:10px;">${CONFIDENCE_BADGE[em.confidence] || ''}</span></div>
+          </div>
+          <div class="history-block" style="width: 100%;">
+            ${historyHtml || `<div class="cost-sub">${esc(em.reasoning || 'AI estimated')}</div>`}
+            ${em.evidence ? `<div class="cost-sub" style="font-style:italic; color: #5bc0de; margin-top: 4px;">Source: "${esc(em.evidence)}"</div>` : ''}
+          </div>
         </div>
-        <div class="cost-amount">×${em.value?.toFixed(2) || '—'} <span style="font-size:10px;">${CONFIDENCE_BADGE[em.confidence] || ''}</span></div>
-      </div>
-    `).join('');
+      `;
+    }).join('');
   } else {
     costEl.innerHTML = '<p style="font-size:12px;color:var(--text-secondary)">Chưa có tham số nào được điền.</p>';
   }
@@ -398,16 +431,115 @@ async function submitTranscript() {
   }
 }
 
+// ─── Inline Confirm/Adjust EM ─────────────────────────────────────────────────────
+
+async function confirmEM(emId, action, newValue = null, reason = '') {
+  updateStatus(`Đang xác nhận ${emId}...`, 'working');
+  try {
+    const data = await apiPost('/api/confirm-em', {
+      sessionId: state.sessionId,
+      em_id: emId,
+      action,       // 'confirm' | 'adjust'
+      newValue,
+      reason,
+    });
+
+    if (data.effortMultipliers) {
+      updateEMTracker(
+        data.effortMultipliers,
+        data.filledCount || data.effortMultipliers.filter(m => m.value !== null).length,
+        data.compoundMultiplier || 1.0,
+        data.effectiveBufferPercent || '+0.0%'
+      );
+    }
+
+    // Collapse card after confirm
+    const card = document.getElementById(`slot-${emId}`);
+    if (card) card.classList.remove('expanded');
+
+    updateStatus(`${emId} đã ${action === 'confirm' ? 'xác nhận' : 'điều chỉnh'} thành công.`, 'success');
+  } catch (err) {
+    updateStatus(`Lỗi ${emId}: ${err.message}`, 'error');
+  }
+}
+
+function setupCardInteractions() {
+  const container = document.getElementById('slot-cards');
+  if (!container) return;
+
+  // Click header to toggle expand
+  container.addEventListener('click', (e) => {
+    // Ignore clicks inside the expand panel completely so it doesn't accidentally close
+    if (e.target.closest('.slot-expand-panel')) return;
+
+    const header = e.target.closest('.slot-card-header');
+    if (!header) return;
+
+    const card = header.closest('.slot-card');
+    if (!card) return;
+
+    // Only expand cards that have a value
+    if (card.dataset.status === 'empty') return;
+
+    // Toggle — close others first
+    const wasExpanded = card.classList.contains('expanded');
+    container.querySelectorAll('.slot-card.expanded').forEach(c => c.classList.remove('expanded'));
+    if (!wasExpanded) card.classList.add('expanded');
+  });
+
+  // Slider live preview
+  container.addEventListener('input', (e) => {
+    if (!e.target.classList.contains('slot-slider')) return;
+    const card = e.target.closest('.slot-card');
+    if (!card) return;
+    const valDisplay = card.querySelector('.slot-slider-val');
+    if (valDisplay) valDisplay.textContent = parseFloat(e.target.value).toFixed(2);
+  });
+
+  // Confirm button
+  container.addEventListener('click', (e) => {
+    if (!e.target.classList.contains('btn-confirm-em')) return;
+    const card = e.target.closest('.slot-card');
+    if (!card) return;
+    const emId = card.dataset.em;
+    confirmEM(emId, 'confirm');
+  });
+
+  // Adjust button
+  container.addEventListener('click', (e) => {
+    if (!e.target.classList.contains('btn-adjust-em')) return;
+    const card = e.target.closest('.slot-card');
+    if (!card) return;
+    const emId = card.dataset.em;
+    const slider = card.querySelector('.slot-slider');
+    const reasonInput = card.querySelector('.slot-reason-input');
+    const newValue = slider ? parseFloat(slider.value) : null;
+    const reason = reasonInput ? reasonInput.value.trim() : '';
+    confirmEM(emId, 'adjust', newValue, reason);
+  });
+}
+
 // ─── API: Base Report ─────────────────────────────────────────────────────────
 
 async function generateBaseReport() {
   const btn = document.getElementById('btn-base-price');
+  
+  // Collect overrides
+  const md = document.getElementById('inp-mandays').value;
+  const role = document.getElementById('inp-role').value;
+  const users = document.getElementById('inp-usercount').value;
+
+  let query = `/api/base-report?sessionId=${encodeURIComponent(state.sessionId)}`;
+  if (md) query += `&manDays=${md}`;
+  if (role) query += `&role=${role}`;
+  if (users) query += `&userCount=${users}`;
+
   btn.disabled = true;
   btn.textContent = '⏳ Đang tính toán...';
   updateStatus('Đang tổng hợp báo cáo Base Price...', 'working');
 
   try {
-    const data = await apiGet(`/api/base-report?sessionId=${encodeURIComponent(state.sessionId)}`);
+    const data = await apiGet(query);
     showBaseReport(data);
     updateStatus(`Base Price: ${formatVND(data.baseCost)} (${data.filledCount}/${data.filledCount + data.missingCount} EMs)`, 'success');
   } catch (err) {
@@ -415,73 +547,6 @@ async function generateBaseReport() {
   } finally {
     btn.textContent = '⚡ Tính Base Price Nhanh';
     btn.disabled = false;
-  }
-}
-
-// ─── API: Override ────────────────────────────────────────────────────────────
-
-async function applyOverride() {
-  const reason = document.getElementById('ov-reason').value.trim();
-  if (!reason) {
-    document.getElementById('ov-reason').focus();
-    document.getElementById('ov-reason').style.borderColor = 'var(--risk-high-border)';
-    setTimeout(() => {
-      document.getElementById('ov-reason').style.borderColor = '';
-    }, 1500);
-    return;
-  }
-
-  const manDaysVal = document.getElementById('ov-mandays')?.value;
-  const role = document.getElementById('ov-role')?.value;
-
-  const calcOverrides = {};
-  if (role) calcOverrides['primaryRole'] = role;
-  if (manDaysVal) calcOverrides['estimatedManDays'] = parseInt(manDaysVal, 10);
-
-  // Collect EM slider overrides
-  const emOverrides = {};
-  const reasons = {};
-  document.querySelectorAll('.em-slider').forEach(slider => {
-    const emId = slider.dataset.emId;
-    const val = parseFloat(slider.value);
-    if (emId && !isNaN(val)) {
-      emOverrides[emId] = val;
-      reasons[emId] = reason;
-    }
-  });
-
-  const btn = document.getElementById('override-apply-btn');
-  btn.disabled = true;
-  btn.textContent = '⏳ Đang tính lại...';
-  updateStatus('Đang tính toán lại báo cáo...', 'working');
-
-  try {
-    const data = await apiPost('/api/override', {
-      sessionId: state.sessionId,
-      overriddenBy: 'Pre-sales',
-      emOverrides: Object.keys(emOverrides).length > 0 ? emOverrides : undefined,
-      calcOverrides: Object.keys(calcOverrides).length > 0 ? calcOverrides : undefined,
-      reasons,
-    });
-
-    state.priceBreakdown = data.breakdown;
-    appendAuditLogs(data.overrideLogs);
-
-    if (data.effortMultipliers) {
-      const filled = data.effortMultipliers.filter(m => m.value !== null).length;
-      updateEMTracker(data.effortMultipliers, filled, state.compoundMultiplier, '');
-    }
-
-    updateStatus('Override đã được áp dụng thành công.', 'success');
-    document.getElementById('ov-reason').value = '';
-
-    await generateBaseReport();
-
-  } catch (err) {
-    updateStatus(`Override thất bại: ${err.message}`, 'error');
-  } finally {
-    btn.disabled = false;
-    btn.innerHTML = '<span>⚡</span> Áp dụng Override & Tính lại';
   }
 }
 
@@ -537,9 +602,8 @@ function init() {
   setupFileUpload('btn-upload-profile', 'profile-file-upload', 'profile-input');
   setupFileUpload('btn-upload-transcript', 'transcript-file-upload', 'transcript-input');
 
-  // Override button
-  const overrideBtn = document.getElementById('override-apply-btn');
-  if (overrideBtn) overrideBtn.addEventListener('click', applyOverride);
+  // Setup EM card click-to-expand + confirm/adjust
+  setupCardInteractions();
 
   console.log('[KHantix] Copilot Edition initialized. Session:', state.sessionId);
 }

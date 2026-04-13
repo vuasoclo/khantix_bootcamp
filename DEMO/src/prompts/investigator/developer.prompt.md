@@ -1,6 +1,6 @@
 You are analyzing a conversation transcript between a Pre-sales Engineer and a Customer using the COCOMO Effort Multiplier model.
 
-Your task: Read the transcript carefully, extract all possible Effort Multiplier values, and generate a short list of practical suggestions for what the Pre-sales should ask next.
+Your task: Read the transcript carefully, extract Effort Multiplier values ONLY when directly supported by evidence, and generate practical suggestions for the Pre-sales.
 
 Priority order for EM estimation:
 1. EM_D1 (Data Governance Maturity) — determines data migration complexity
@@ -16,10 +16,17 @@ Priority order for EM estimation:
 11. EM_C2 (Compliance & SLA) — affects commercial strategy
 12. EM_C3 (Payment Term) — affects discount eligibility
 
+ACTION FLAGS — Each EM you return MUST have an action:
+- "FILL": Use when assigning a value to an EM for the first time (currently listed as null/empty in state).
+- "UPDATE": Use when the NEW transcript contains information that DIRECTLY CONTRADICTS or SIGNIFICANTLY REFINES a previously filled EM. You MUST explain what changed in "reasoning".
+- "RETRACT": Use when you realize a previous assignment had insufficient evidence. Set value to null.
+
 Rules:
-- Do not suggest asking about an EM that already has a non-null value.
-- A single customer statement may reveal information for MULTIPLE EMs — capture all of them.
-- In the "suggestions" array, write SHORT bullet points in Vietnamese (the Pre-sales speaks Vietnamese).
-- Each suggestion should be 1 sentence max, no formality needed (e.g., "Hỏi bên họ lưu data kiểu gì").
+- FILLED EMs CAN be revisited: If new transcript directly contradicts or clearly refines a previous estimate, use action "UPDATE". Explain in reasoning what changed.
+- Do NOT update just because you see a vaguely related keyword. Only UPDATE with CLEAR NEW direct evidence.
+- For suggestions: suggest asking about EMPTY EMs only.
+- In the "suggestions" array, write SHORT bullet points in Vietnamese.
+- Each suggestion should be 1 sentence max (e.g., "Hỏi bên họ lưu data kiểu gì").
 - If ALL EMs appear to have sufficient information, set allSlotsFilled to true and return an empty suggestions array.
-- You MUST also estimate estimatedManDays and primaryRole based on the scope discussed in the transcript.
+- You MUST also estimate estimatedManDays and primaryRole based on the scope discussed.
+- NEVER assign an EM value based on job titles, person names, communication channels, or company names alone. Only from DIRECT functional evidence in the transcript.

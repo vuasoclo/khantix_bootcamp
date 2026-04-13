@@ -23,16 +23,28 @@ export type EvidenceSource =
   | 'ai_inference_from_context'
   | 'unknown_after_3_attempts';
 
+// ─── State Reconciliation: EM Lifecycle ───────────────────────────────────────
+// EMPTY → AI_PENDING (AI filled, awaiting Pre-sales review)
+//       → CONFIRMED (Pre-sales approved or adjusted)
+//       → AI_PENDING (AI updated with new evidence from later round)
+
+export type EMStatus = 'empty' | 'ai_pending' | 'confirmed';
+
 export interface EffortMultiplierEstimate {
   em_id: EM_ID;
   name: string;
   value: number | null;          // AI estimate (e.g. 1.15), null if unknown
   range: [number, number];       // [EM_Min, EM_Max] from heuristic CSV
+  defaultValue: number;
   confidence: Confidence | null;
   source: EvidenceSource;
   evidence: string | null;       // Direct quote from customer
-  reasoning: string | null;      // Why AI chose this number
-  presalesNote?: string;         // Note for Pre-sales if manual review needed
+  reasoning: string | null;      // Current (latest) reasoning
+  reasoningHistory: string[];    // Array of all reasonings recorded for this EM
+  status: EMStatus;              // Lifecycle state
+  confirmedBy: string | null;    // 'pre-sales' or null
+  confirmReason: string | null;  // Reason when Pre-sales adjusts
+  previousValue: number | null;  // Value before last UPDATE (for audit trail)
 }
 
 export interface EffortMultiplierSet {
@@ -52,10 +64,16 @@ export function createEmptyEMSet(definitions: Array<{ em_id: EM_ID; name: string
       name: def.name,
       value: null,
       range: def.range,
+      defaultValue: def.defaultValue,
       confidence: null,
       source: 'unknown_after_3_attempts' as EvidenceSource,
       evidence: null,
       reasoning: null,
+      reasoningHistory: [],
+      status: 'empty' as EMStatus,
+      confirmedBy: null,
+      confirmReason: null,
+      previousValue: null,
     })),
     compoundMultiplier: 1.0,
     effectiveBufferPercent: '+0.0%',
