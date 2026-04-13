@@ -53,7 +53,7 @@ export class InvestigatorService {
     userMessage: string,
     session: EMSessionState,
     callLlm: (prompt: string) => Promise<string>
-  ): Promise<{ session: EMSessionState; nextQuestion: string; done: boolean }> {
+  ): Promise<{ session: EMSessionState; suggestions: string[]; done: boolean }> {
     const contract = this.strategy.build();
 
     // Build state context showing filled/missing EMs
@@ -79,7 +79,7 @@ Compound risk multiplier so far: ${session.emSet.compoundMultiplier.toFixed(3)}
       .withSystem(contract.systemPrompt)
       .withDeveloper(contract.developerPrompt + '\n\n' + stateContext)
       .withOutputFormat(contract.outputFormatPrompt)
-      .withUserInput(`Customer said: "${userMessage}"`)
+      .withUserInput(`Transcript:\n${userMessage}`)
       .build();
 
     const rawResponse = await callLlm(prompt);
@@ -89,7 +89,7 @@ Compound risk multiplier so far: ${session.emSet.compoundMultiplier.toFixed(3)}
       // Graceful degradation
       return {
         session,
-        nextQuestion: 'Could you tell me a bit more about your current setup?',
+        suggestions: ['Yêu cầu khách mô tả lại vấn đề cốt lõi cần giải quyết'],
         done: false,
       };
     }
@@ -106,13 +106,22 @@ Compound risk multiplier so far: ${session.emSet.compoundMultiplier.toFixed(3)}
       }
     }
 
+    if (parsed.estimatedManDays) {
+      session.emSet.estimatedManDays = parsed.estimatedManDays;
+    }
+    if (parsed.primaryRole) {
+      session.emSet.primaryRole = parsed.primaryRole;
+    }
+    if (parsed.suggestions && parsed.suggestions.length > 0) {
+      session.emSet.suggestions = parsed.suggestions;
+    }
+
     // Recompute compound
     computeCompound(session.emSet);
 
-    // Update conversation history
+    // Update conversation history (No assistant output anymore since it's a silent copilot)
     session.conversationHistory.push(
-      { role: 'user', content: userMessage },
-      { role: 'assistant', content: parsed.nextQuestionToUser },
+      { role: 'user', content: userMessage }
     );
     session.updatedAt = new Date();
 
@@ -120,7 +129,7 @@ Compound risk multiplier so far: ${session.emSet.compoundMultiplier.toFixed(3)}
 
     return {
       session,
-      nextQuestion: parsed.nextQuestionToUser,
+      suggestions: parsed.suggestions || [],
       done: parsed.allSlotsFilled || filled >= 12,
     };
   }

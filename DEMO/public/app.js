@@ -1,11 +1,12 @@
 /**
- * KHantix AI CPQ — Client-side Application (COCOMO Edition)
+ * KHantix AI CPQ — Pre-sales Copilot Edition
  *
- * Manages:
- *  1. Session state (sessionId, effortMultipliers, conversation)
- *  2. API calls: /api/health, /api/chat, /api/calculate, /api/override
- *  3. UI: EM tracker updates, chat rendering, price report reveal
- *  4. Override Console: collects changes, sends to /api/override, re-renders
+ * Flow:
+ *  1. Pre-sales loads a project profile (Bouncer gate)
+ *  2. Pre-sales pastes conversation transcripts (Round 1, 2...)
+ *  3. AI silently extracts EMs, shows suggestions
+ *  4. Pre-sales can generate Base Price report at any time
+ *  5. Override Console for manual EM adjustments
  */
 
 'use strict';
@@ -14,12 +15,13 @@
 
 const state = {
   sessionId: null,
+  profileLoaded: false,
   effortMultipliers: [],
   compoundMultiplier: 1.0,
   allSlotsFilled: false,
   priceBreakdown: null,
   originalPrice: null,
-  isWaiting: false,
+  transcriptRound: 0,
 };
 
 // ─── Utilities ────────────────────────────────────────────────────────────────
@@ -49,16 +51,14 @@ function esc(str) {
     .replace(/>/g, '&gt;');
 }
 
-function autoResize(textarea) {
-  textarea.style.height = 'auto';
-  textarea.style.height = Math.min(textarea.scrollHeight, 120) + 'px';
-}
-
 // ─── API Helpers ──────────────────────────────────────────────────────────────
 
 async function apiGet(path) {
   const res = await fetch(path);
-  if (!res.ok) throw new Error(`GET ${path} → ${res.status}`);
+  if (!res.ok) {
+    const data = await res.json().catch(() => ({}));
+    throw new Error(data.error || data.reason || `GET ${path} → ${res.status}`);
+  }
   return res.json();
 }
 
@@ -69,54 +69,17 @@ async function apiPost(path, body) {
     body: JSON.stringify(body),
   });
   const data = await res.json();
-  if (!res.ok) throw new Error(data.error ?? `POST ${path} → ${res.status}`);
+  if (!res.ok) throw new Error(data.error ?? data.reason ?? `POST ${path} → ${res.status}`);
   return data;
-}
-
-// ─── UI: Chat ─────────────────────────────────────────────────────────────────
-
-function appendMessage(role, content) {
-  const welcome = document.getElementById('chat-welcome');
-  if (welcome) welcome.remove();
-
-  const messages = document.getElementById('messages');
-  const indicator = document.getElementById('typing-indicator');
-
-  const div = document.createElement('div');
-  div.className = `msg ${role}`;
-  div.innerHTML = `
-    <div class="msg-label">${role === 'ai' ? '🤖 KHantix AI' : '👤 You'}</div>
-    <div class="msg-bubble">${esc(content)}</div>
-  `;
-  messages.insertBefore(div, indicator);
-  messages.scrollTop = messages.scrollHeight;
-}
-
-function showTyping() {
-  document.getElementById('typing-indicator').classList.add('visible');
-  const messages = document.getElementById('messages');
-  messages.scrollTop = messages.scrollHeight;
-}
-
-function hideTyping() {
-  document.getElementById('typing-indicator').classList.remove('visible');
-}
-
-function setInputEnabled(enabled) {
-  const input = document.getElementById('user-input');
-  const btn = document.getElementById('send-btn');
-  input.disabled = !enabled;
-  btn.disabled = !enabled;
-  state.isWaiting = !enabled;
 }
 
 // ─── UI: EM Tracker ───────────────────────────────────────────────────────────
 
 const CONFIDENCE_BADGE = {
-  high:   '🟢',
+  high: '🟢',
   medium: '🟡',
-  low:    '🔴',
-  null:   '',
+  low: '🔴',
+  null: '',
 };
 
 function updateEMTracker(multipliers, filledCount, compoundMultiplier, effectiveBufferPercent) {
@@ -161,88 +124,112 @@ function updateEMTracker(multipliers, filledCount, compoundMultiplier, effective
   }
 }
 
-// ─── UI: Price Report ─────────────────────────────────────────────────────────
+// ─── UI: Suggestions ──────────────────────────────────────────────────────────
 
-function showPriceReport(breakdown) {
+function updateSuggestions(suggestions) {
+  const ul = document.getElementById('ai-suggestions');
+  if (!ul) return;
+
+  if (!suggestions || suggestions.length === 0) {
+    ul.innerHTML = '<li style="color: var(--risk-low);">✅ Không còn câu hỏi cần hỏi thêm.</li>';
+    return;
+  }
+
+  ul.innerHTML = suggestions
+    .map(s => `<li>${esc(s)}</li>`)
+    .join('');
+}
+
+// ─── UI: Status Log ───────────────────────────────────────────────────────────
+
+function updateStatus(message, type = 'info') {
+  const bar = document.getElementById('inline-status-bar');
+  const icon = document.getElementById('inline-status-icon');
+  const text = document.getElementById('inline-status-text');
+  
+  if (!bar) return;
+
+  const config = {
+    info: { icon: '⚪', color: 'var(--text-muted)' },
+    working: { icon: '⏳', color: '#5bc0de' },
+    success: { icon: '✅', color: 'var(--risk-low)' },
+    error: { icon: '⚠️', color: 'var(--risk-high)' },
+    warning: { icon: '💡', color: '#f0ad4e' },
+  };
+
+  const curr = config[type] || config.info;
+  icon.textContent = curr.icon;
+  text.textContent = message;
+  text.style.color = curr.color;
+  
+  // Flash effect
+  bar.style.backgroundColor = 'rgba(255,255,255,0.05)';
+  setTimeout(() => {
+    bar.style.backgroundColor = 'rgba(0,0,0,0.4)';
+  }, 200);
+}
+
+// ─── UI: Base Report ──────────────────────────────────────────────────────────
+
+function showBaseReport(data) {
   document.getElementById('report-placeholder').style.display = 'none';
   document.getElementById('report-content').hidden = false;
 
-  // Hero price
-  document.getElementById('price-amount').textContent = formatVND(breakdown.recommendedPrice);
-  document.getElementById('price-note').textContent = `COCOMO Compound Multiplier: ×${breakdown._debug?.compoundMultiplier?.toFixed(3) || '—'}`;
+  // Hero: Base Price
+  document.getElementById('price-amount').textContent = formatVND(data.baseCost);
+  document.getElementById('price-note').textContent =
+    `Base Cost (Sàn giá) | ${data.estimatedManDays} Man-Days × ${formatVND(data.dailyRate)}/ngày (${data.primaryRole})`;
 
-  // Price delta badge
+  // Delta badge
   const deltaEl = document.getElementById('price-delta');
   deltaEl.className = '';
+  deltaEl.textContent = '';
 
-  // Narrative
+  // Narrative — show labor/server/license breakdown
   const narrativeEl = document.getElementById('narrative-list');
-  narrativeEl.innerHTML = breakdown.narrative
-    .map(p => `<p class="narrative-para">${esc(p)}</p>`)
-    .join('');
-
-  // Cost items
-  const costEl = document.getElementById('cost-items');
-  const items = breakdown.costLineItems ?? [];
-  const total = items.reduce((s, i) => s + i.amount, 0);
-
-  costEl.innerHTML = items.map(item => `
-    <div class="cost-row">
-      <div>
-        <div class="cost-label">${esc(item.category)}</div>
-        <div class="cost-sub">${esc(item.explanation)}</div>
-      </div>
-      <div class="cost-amount">${formatVND(item.amount)}</div>
-    </div>
-  `).join('') + `
-    <div class="cost-total-row">
-      <div class="cost-label">Total Base Cost</div>
-      <div class="cost-amount">${formatVND(total)}</div>
-    </div>
+  narrativeEl.innerHTML = `
+    <p class="narrative-para">Chi phí Nhân công: <strong>${formatVND(data.laborCost)}</strong> (${data.estimatedManDays} ngày × ${formatVND(data.dailyRate)})</p>
+    <p class="narrative-para">Chi phí Server: <strong>${formatVND(data.serverCost)}</strong></p>
+    <p class="narrative-para">Chi phí License: <strong>${formatVND(data.licenseCost)}</strong></p>
+    <p class="narrative-para" style="margin-top: 8px;">Compound Risk Multiplier: <strong>×${data.compoundMultiplier.toFixed(3)}</strong> (${data.effectiveBufferPercent})</p>
   `;
 
-  // Risk adjustments
-  const riskEl = document.getElementById('risk-items');
-  const risks = breakdown.riskAdjustments ?? [];
-  if (risks.length === 0) {
-    riskEl.innerHTML = '<p style="font-size:12px;color:var(--text-secondary)">No risk adjustments applied.</p>';
-  } else {
-    riskEl.innerHTML = risks.map(r => `
-      <div class="risk-row">
-        <div class="risk-row-header">
-          <span class="risk-dimension">${esc(r.dimension)}</span>
-          <div style="display:flex;gap:6px;align-items:center">
-            <span class="risk-tag ${esc(r.level)}">${esc(r.level)}</span>
-            <span class="risk-buffer">+${fmtPct(r.bufferApplied)} / +${r.extraDays}d</span>
-          </div>
+  // Cost items — filled EMs
+  const costEl = document.getElementById('cost-items');
+  if (data.filledEMs && data.filledEMs.length > 0) {
+    costEl.innerHTML = data.filledEMs.map(em => `
+      <div class="cost-row">
+        <div>
+          <div class="cost-label">✅ ${esc(em.em_id)} — ${esc(em.name)}</div>
+          <div class="cost-sub">${esc(em.reasoning || 'AI estimated')}</div>
+          ${em.evidence ? `<div class="cost-sub" style="font-style:italic; color: var(--accent);">"${esc(em.evidence)}"</div>` : ''}
         </div>
-        <div class="risk-why">${esc(r.why)}</div>
+        <div class="cost-amount">×${em.value?.toFixed(2) || '—'} <span style="font-size:10px;">${CONFIDENCE_BADGE[em.confidence] || ''}</span></div>
       </div>
     `).join('');
+  } else {
+    costEl.innerHTML = '<p style="font-size:12px;color:var(--text-secondary)">Chưa có tham số nào được điền.</p>';
   }
 
-  // Margin
-  const m = breakdown.marginBreakdown;
+  // Risk items — missing EMs
+  const riskEl = document.getElementById('risk-items');
+  if (data.missingEMs && data.missingEMs.length > 0) {
+    riskEl.innerHTML = data.missingEMs.map(em => `
+      <div class="risk-row">
+        <div class="risk-row-header">
+          <span class="risk-dimension">❌ ${esc(em.em_id)} — ${esc(em.name)}</span>
+          <span class="risk-tag" style="background:rgba(255,107,107,0.2);color:#ff6b6b;">MISSING</span>
+        </div>
+        <div class="risk-why">Range: [${em.range[0]}, ${em.range[1]}] — Tạm tính = 1.0</div>
+      </div>
+    `).join('');
+  } else {
+    riskEl.innerHTML = '<p style="font-size:12px;color:var(--risk-low)">✅ Tất cả tham số đã được điền!</p>';
+  }
+
+  // Margin — hide for base report
   const marginEl = document.getElementById('margin-items');
-  marginEl.innerHTML = `
-    <div class="margin-row">
-      <span class="margin-name">Net Profit</span>
-      <span class="margin-pct">${fmtPct(m.netProfitPct)}</span>
-    </div>
-    <div class="margin-row">
-      <span class="margin-name">Risk Premium</span>
-      <span class="margin-pct">${fmtPct(m.riskPremiumPct)}</span>
-    </div>
-    <div class="margin-row">
-      <span class="margin-name">Reinvestment</span>
-      <span class="margin-pct">${fmtPct(m.reinvestmentPct)}</span>
-    </div>
-    <div class="margin-row margin-total">
-      <span class="margin-name">Total Margin</span>
-      <span class="margin-pct">${fmtPct(m.totalMarginPct)} &nbsp;(${formatVND(m.totalMarginAmount)})</span>
-    </div>
-    <div class="margin-why">${esc(m.why)}</div>
-  `;
+  marginEl.innerHTML = '<p style="font-size:12px;color:var(--text-secondary)">Margin/Buffer sẽ được tính ở giai đoạn Finalize Price.</p>';
 
   document.getElementById('report-scroll').scrollTop = 0;
 }
@@ -286,23 +273,101 @@ async function checkHealth() {
   }
 }
 
-// ─── API: Chat ────────────────────────────────────────────────────────────────
+// ─── API: Profile (Bouncer) ───────────────────────────────────────────────────
 
-async function sendChat(message) {
-  setInputEnabled(false);
-  showTyping();
-  appendMessage('user', message);
+async function submitProfile() {
+  const input = document.getElementById('profile-input');
+  const btn = document.getElementById('btn-profile');
+  const text = input.value.trim();
+
+  if (!text) {
+    input.style.borderColor = '#ff6b6b';
+    setTimeout(() => { input.style.borderColor = ''; }, 1500);
+    return;
+  }
+
+  btn.disabled = true;
+  btn.textContent = '⏳ Đang phân tích...';
+  updateStatus('Đang nạp hồ sơ và kiểm tra Bouncer...', 'working');
 
   try {
-    const data = await apiPost('/api/chat', {
+    const data = await apiPost('/api/profile', {
       sessionId: state.sessionId,
-      message,
+      projectContext: text,
     });
 
-    hideTyping();
-    appendMessage('ai', data.nextQuestion);
+    if (data.rejected) {
+      updateStatus(`TỪ CHỐI: ${data.reason}`, 'error');
+      btn.textContent = '⛔ Bị từ chối — Nhập lại';
+      btn.disabled = false;
+      return;
+    }
 
-    // Update state with COCOMO EM data
+    // Success
+    state.sessionId = data.sessionId || state.sessionId;
+    state.profileLoaded = true;
+    state.effortMultipliers = data.effortMultipliers || [];
+
+    updateEMTracker(
+      data.effortMultipliers || [],
+      data.filledCount || 0,
+      1.0,
+      '+0.0%'
+    );
+    updateSuggestions(data.suggestions);
+
+    updateStatus(`✅ Hồ sơ hợp lệ. Pre-filled ${data.filledCount}/12 EMs. ManDays: ${data.estimatedManDays || 'N/A'}`, 'success');
+
+    btn.textContent = '✅ Đã nạp hồ sơ';
+    btn.disabled = true;
+    
+    // UI Transitions (Wizard)
+    document.getElementById('step-0-container').style.opacity = '0.5';
+    document.getElementById('profile-input').disabled = true;
+    document.getElementById('btn-upload-profile').style.display = 'none';
+    
+    // Reveal next step
+    const step1 = document.getElementById('step-1-container');
+    step1.style.display = 'flex';
+    setTimeout(() => {
+      document.getElementById('transcript-input').focus();
+    }, 100);
+
+  } catch (err) {
+    updateStatus(`Lỗi: ${err.message}`, 'error');
+    btn.textContent = 'Nạp Hồ Sơ & Kiểm tra';
+    btn.disabled = false;
+  }
+}
+
+// ─── API: Analyze Transcript ──────────────────────────────────────────────────
+
+async function submitTranscript() {
+  const input = document.getElementById('transcript-input');
+  const btn = document.getElementById('btn-transcript');
+  const text = input.value.trim();
+
+  if (!text) {
+    input.style.borderColor = '#ff6b6b';
+    setTimeout(() => { input.style.borderColor = ''; }, 1500);
+    return;
+  }
+
+  state.transcriptRound++;
+  btn.disabled = true;
+  btn.textContent = `⏳ Đang phân tích...`;
+  
+  // UI update for round
+  document.getElementById('round-counter').textContent = state.transcriptRound;
+  updateStatus(`Đang bóc tách transcript hiệp ${state.transcriptRound}...`, 'working');
+
+  try {
+    const data = await apiPost('/api/analyze-transcript', {
+      sessionId: state.sessionId,
+      transcript: text,
+    });
+
+    // Update state
     state.effortMultipliers = data.effortMultipliers || [];
     state.compoundMultiplier = data.compoundMultiplier || 1.0;
     state.allSlotsFilled = data.allSlotsFilled;
@@ -313,46 +378,43 @@ async function sendChat(message) {
       data.compoundMultiplier || 1.0,
       data.effectiveBufferPercent || '+0.0%'
     );
+    updateSuggestions(data.suggestions);
 
-    // If all EMs are filled, auto-calculate
+    updateStatus(`Hoàn tất hiệp ${state.transcriptRound}: ${data.filledCount}/12 EMs đã điền`, 'success');
+
     if (data.allSlotsFilled) {
-      await runCalculate();
+      updateStatus('🎉 Đã đủ 12 tham số! Thông tin đã sẵn sàng để tạo báo cáo chốt giá.', 'success');
     }
+
+    // Clear transcript for next round
+    input.value = '';
+    
   } catch (err) {
-    hideTyping();
-    appendMessage('ai', `⚠️ Error: ${err.message}. Please try again.`);
-    console.error('[Chat] Error:', err);
+    updateStatus(`Lỗi phân tích: ${err.message}`, 'error');
   } finally {
-    setInputEnabled(true);
-    document.getElementById('user-input').focus();
+    btn.textContent = 'Phân tích Transcript';
+    btn.disabled = false;
+    document.getElementById('round-counter').textContent = state.transcriptRound + 1;
   }
 }
 
-// ─── API: Calculate ───────────────────────────────────────────────────────────
+// ─── API: Base Report ─────────────────────────────────────────────────────────
 
-async function runCalculate() {
-  const manDaysVal = document.getElementById('ov-mandays')?.value;
-  const roleVal = document.getElementById('ov-role')?.value;
-
-  const payload = {
-    sessionId: state.sessionId,
-    estimatedManDays: manDaysVal ? parseInt(manDaysVal, 10) : undefined,
-    primaryRole: roleVal || 'Senior',
-  };
-
-  // Remove undefined values
-  for (const key of Object.keys(payload)) {
-    if (payload[key] === undefined) delete payload[key];
-  }
+async function generateBaseReport() {
+  const btn = document.getElementById('btn-base-price');
+  btn.disabled = true;
+  btn.textContent = '⏳ Đang tính toán...';
+  updateStatus('Đang tổng hợp báo cáo Base Price...', 'working');
 
   try {
-    const data = await apiPost('/api/calculate', payload);
-    state.priceBreakdown = data.breakdown;
-    state.originalPrice = data.breakdown.recommendedPrice;
-    showPriceReport(data.breakdown);
+    const data = await apiGet(`/api/base-report?sessionId=${encodeURIComponent(state.sessionId)}`);
+    showBaseReport(data);
+    updateStatus(`Base Price: ${formatVND(data.baseCost)} (${data.filledCount}/${data.filledCount + data.missingCount} EMs)`, 'success');
   } catch (err) {
-    console.error('[Calculate] Error:', err);
-    appendMessage('ai', '⚠️ Price calculation encountered an error. Please check the server.');
+    updateStatus(`Lỗi: ${err.message}`, 'error');
+  } finally {
+    btn.textContent = '⚡ Tính Base Price Nhanh';
+    btn.disabled = false;
   }
 }
 
@@ -369,45 +431,89 @@ async function applyOverride() {
     return;
   }
 
-  const manDaysVal = document.getElementById('ov-mandays').value;
-  const role = document.getElementById('ov-role').value;
+  const manDaysVal = document.getElementById('ov-mandays')?.value;
+  const role = document.getElementById('ov-role')?.value;
 
-  const calcOverrides = { primaryRole: role };
+  const calcOverrides = {};
+  if (role) calcOverrides['primaryRole'] = role;
   if (manDaysVal) calcOverrides['estimatedManDays'] = parseInt(manDaysVal, 10);
 
+  // Collect EM slider overrides
+  const emOverrides = {};
   const reasons = {};
-  for (const field of Object.keys(calcOverrides)) reasons[field] = reason;
+  document.querySelectorAll('.em-slider').forEach(slider => {
+    const emId = slider.dataset.emId;
+    const val = parseFloat(slider.value);
+    if (emId && !isNaN(val)) {
+      emOverrides[emId] = val;
+      reasons[emId] = reason;
+    }
+  });
 
   const btn = document.getElementById('override-apply-btn');
   btn.disabled = true;
-  btn.textContent = '⏳ Recalculating...';
+  btn.textContent = '⏳ Đang tính lại...';
+  updateStatus('Đang tính toán lại báo cáo...', 'working');
 
   try {
     const data = await apiPost('/api/override', {
       sessionId: state.sessionId,
       overriddenBy: 'Pre-sales',
-      calcOverrides,
+      emOverrides: Object.keys(emOverrides).length > 0 ? emOverrides : undefined,
+      calcOverrides: Object.keys(calcOverrides).length > 0 ? calcOverrides : undefined,
       reasons,
     });
 
     state.priceBreakdown = data.breakdown;
-    showPriceReport(data.breakdown);
     appendAuditLogs(data.overrideLogs);
 
-    // Update EM tracker if server returns updated multipliers
     if (data.effortMultipliers) {
       const filled = data.effortMultipliers.filter(m => m.value !== null).length;
       updateEMTracker(data.effortMultipliers, filled, state.compoundMultiplier, '');
     }
 
+    updateStatus('Override đã được áp dụng thành công.', 'success');
     document.getElementById('ov-reason').value = '';
+
+    await generateBaseReport();
+
   } catch (err) {
-    console.error('[Override] Error:', err);
-    alert(`Override failed: ${err.message}`);
+    updateStatus(`Override thất bại: ${err.message}`, 'error');
   } finally {
     btn.disabled = false;
-    btn.innerHTML = '<span>⚡</span> Apply Override & Recalculate';
+    btn.innerHTML = '<span>⚡</span> Áp dụng Override & Tính lại';
   }
+}
+
+// ─── File Upload Helpers ──────────────────────────────────────────────────────
+
+function setupFileUpload(btnId, inputId, textareaId) {
+  const btn = document.getElementById(btnId);
+  const input = document.getElementById(inputId);
+  const textarea = document.getElementById(textareaId);
+  
+  if (!btn || !input || !textarea) return;
+
+  btn.addEventListener('click', () => {
+    input.click();
+  });
+
+  input.addEventListener('change', (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = (evt) => {
+      textarea.value = evt.target.result;
+      updateStatus(`Đã upload file: ${file.name}`, 'info');
+      // Reset input so the same file could be picked again if needed
+      input.value = '';
+    };
+    reader.onerror = () => {
+      updateStatus('Không thể đọc file', 'error');
+    };
+    reader.readAsText(file);
+  });
 }
 
 // ─── Init ─────────────────────────────────────────────────────────────────────
@@ -418,29 +524,24 @@ function init() {
 
   checkHealth();
 
-  document.getElementById('send-btn').addEventListener('click', () => {
-    const input = document.getElementById('user-input');
-    const msg = input.value.trim();
-    if (!msg || state.isWaiting) return;
-    input.value = '';
-    autoResize(input);
-    sendChat(msg);
-  });
+  // Profile button
+  document.getElementById('btn-profile').addEventListener('click', submitProfile);
 
-  document.getElementById('user-input').addEventListener('keydown', (e) => {
-    if (e.key === 'Enter' && !e.shiftKey) {
-      e.preventDefault();
-      document.getElementById('send-btn').click();
-    }
-  });
+  // Transcript button
+  document.getElementById('btn-transcript').addEventListener('click', submitTranscript);
 
-  document.getElementById('user-input').addEventListener('input', (e) => {
-    autoResize(e.target);
-  });
+  // Base Price button
+  document.getElementById('btn-base-price').addEventListener('click', generateBaseReport);
 
-  document.getElementById('override-apply-btn').addEventListener('click', applyOverride);
+  // Setup File Uploaders
+  setupFileUpload('btn-upload-profile', 'profile-file-upload', 'profile-input');
+  setupFileUpload('btn-upload-transcript', 'transcript-file-upload', 'transcript-input');
 
-  console.log('[KHantix] COCOMO Edition initialized. Session:', state.sessionId);
+  // Override button
+  const overrideBtn = document.getElementById('override-apply-btn');
+  if (overrideBtn) overrideBtn.addEventListener('click', applyOverride);
+
+  console.log('[KHantix] Copilot Edition initialized. Session:', state.sessionId);
 }
 
 document.addEventListener('DOMContentLoaded', init);

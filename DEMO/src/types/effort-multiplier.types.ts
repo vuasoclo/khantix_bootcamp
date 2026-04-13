@@ -39,6 +39,9 @@ export interface EffortMultiplierSet {
   multipliers: EffortMultiplierEstimate[];
   compoundMultiplier: number;    // Product of all non-null EM values
   effectiveBufferPercent: string; // e.g. "+57.1%"
+  estimatedManDays?: number | null;
+  primaryRole?: 'Junior' | 'Senior' | 'PM' | 'BA' | null;
+  suggestions?: string[];
 }
 
 // Dynamic creation relying on loader definitions
@@ -56,5 +59,8 @@ export function createEmptyEMSet(definitions: Array<{ em_id: EM_ID; name: string
     })),
     compoundMultiplier: 1.0,
     effectiveBufferPercent: '+0.0%',
+    estimatedManDays: null,
+    primaryRole: null,
+    suggestions: [],
   };
 }

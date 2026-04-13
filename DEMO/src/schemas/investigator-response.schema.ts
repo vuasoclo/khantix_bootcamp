@@ -14,6 +14,8 @@ export interface EMEstimateFromLLM {
 
 export interface InvestigatorResponse {
   effortMultipliers: EMEstimateFromLLM[];
-  nextQuestionToUser: string;
+  estimatedManDays?: number | null;
+  primaryRole?: 'Junior' | 'Senior' | 'PM' | 'BA' | null;
+  suggestions: string[];
   allSlotsFilled: boolean;
 }

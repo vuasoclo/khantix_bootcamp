@@ -1,12 +1,15 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>KHantix AI CPQ — Intelligent Pricing System</title>
-  <meta name="description" content="KHantix AI CPQ: automates B2B IT pricing by translating technical symptoms into quantified financial risks with full explainability." />
+  <meta name="description"
+    content="KHantix AI CPQ: automates B2B IT pricing by translating technical symptoms into quantified financial risks with full explainability." />
   <link rel="stylesheet" href="style.css" />
 </head>
+
 <body>
 
   <!-- ══════════════════════════════════════════════════════ HEADER ═══ -->
@@ -29,45 +32,64 @@
   <!-- ══════════════════════════════════════════════════ WORKSPACE ═══ -->
   <main id="workspace">
 
-    <!-- ─────────────────────────────── PANEL 1: CHAT ─── -->
-    <section class="panel" id="chat-panel" aria-label="Investigator Conversation">
+    <!-- ─────────────────────────────── PANEL 1: COPILOT INPUT ─── -->
+    <section class="panel" id="chat-panel" aria-label="Copilot Input">
 
       <div class="panel-header">
         <div class="panel-title">
-          <span class="icon">💬</span>
-          Investigator Conversation
+          <span class="icon">🎙️</span>
+          Pre-sales Copilot
         </div>
       </div>
 
-      <div id="messages">
-        <div class="chat-welcome" id="chat-welcome">
-          <div class="welcome-icon">🤖</div>
-          <h3>KHantix Pre-sales AI</h3>
-          <p>
-            Start the conversation by introducing your project.
-            The AI will ask targeted questions to assess technical risks — no pricing commitments until all slots are filled.
-          </p>
-          <p style="margin-top:4px; font-size:11px; color:var(--text-muted);">
-            Example: <em>"We need an ERP system for our chain of 50 pharmacies."</em>
-          </p>
+      <div id="messages" style="flex: 1; padding: 12px; display: flex; flex-direction: column; gap: 12px; overflow-y: auto;">
+        
+        <!-- STEP 0: Pre-quote Profile Input -->
+        <div id="step-0-container" class="input-card" style="background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.1); border-radius: 8px; padding: 12px; transition: opacity 0.3s;">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+            <h4 style="margin: 0; color: var(--accent); font-size: 13px;">Giai đoạn 0: Lọc Hồ Sơ</h4>
+            <div style="position: relative;">
+              <input type="file" id="profile-file-upload" accept=".md,.txt" style="display:none;" />
+              <button id="btn-upload-profile" style="background: transparent; border: 1px dashed rgba(255,255,255,0.3); color: var(--text-secondary); cursor: pointer; padding: 4px 8px; border-radius: 4px; font-size: 11px;">📄 Upload .md</button>
+            </div>
+          </div>
+          <textarea id="profile-input" placeholder="Dán nội dung hồ sơ trước báo giá hoặc upload file .md..." style="width: 100%; min-height: 80px; background: rgba(0,0,0,0.2); border: 1px solid rgba(255,255,255,0.1); color: white; padding: 8px; font-size: 13px; font-family: inherit; resize: vertical; border-radius: 4px;"></textarea>
+          <button id="btn-profile" style="margin-top: 8px; width: 100%; padding: 8px; background: var(--accent); color: #000; border: none; font-weight: bold; border-radius: 4px; cursor: pointer; transition: all 0.2s;">Nạp Hồ Sơ & Kiểm tra</button>
         </div>
 
-        <!-- Typing indicator (hidden by default) -->
-        <div id="typing-indicator" role="status" aria-label="AI is thinking">
-          <span class="typing-dot"></span>
-          <span class="typing-dot"></span>
-          <span class="typing-dot"></span>
+        <!-- STEP 1 & 2 CONTAINER (Hidden until profile is validated) -->
+        <div id="step-1-container" style="display: none; flex: 1; flex-direction: column; gap: 12px;">
+          
+          <!-- Transcript Input -->
+          <div class="input-card" style="background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.1); border-radius: 8px; padding: 12px; display: flex; flex-direction: column;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+              <h4 style="margin: 0; color: #5bc0de; font-size: 13px;">Nạp Transcript (Hiệp <span id="round-counter">1</span>)</h4>
+              <div style="position: relative;">
+                <input type="file" id="transcript-file-upload" accept=".md,.txt" style="display:none;" />
+                <button id="btn-upload-transcript" style="background: transparent; border: 1px dashed rgba(255,255,255,0.3); color: var(--text-secondary); cursor: pointer; padding: 4px 8px; border-radius: 4px; font-size: 11px;">📄 Upload .md</button>
+              </div>
+            </div>
+            <textarea id="transcript-input" placeholder="Paste đoạn chat/voice transcript tại đây..." style="width: 100%; min-height: 100px; background: rgba(0,0,0,0.2); border: 1px solid rgba(255,255,255,0.1); color: white; padding: 8px; font-size: 13px; font-family: inherit; resize: vertical; border-radius: 4px;"></textarea>
+            <button id="btn-transcript" style="margin-top: 8px; width: 100%; padding: 8px; background: #5bc0de; color: #000; border: none; font-weight: bold; border-radius: 4px; cursor: pointer; transition: all 0.2s;">Phân tích Transcript</button>
+          </div>
+          
+          <!-- Suggestions Area (Expanded flex) -->
+          <div class="input-card" style="background: rgba(0,0,0,0.2); border: 1px dashed rgba(255,255,255,0.2); border-radius: 8px; padding: 12px; flex: 2; overflow-y: auto; display: flex; flex-direction: column;">
+            <h4 style="margin: 0 0 12px 0; color: #f0ad4e; font-size: 13px; display: flex; align-items: center; gap: 6px;"><span style="font-size: 16px;">💡</span> Gợi ý cho Pre-sales</h4>
+            <ul id="ai-suggestions" style="margin: 0; padding-left: 20px; font-size: 14px; color: var(--text-secondary); line-height: 1.6; flex: 1;">
+              <li>Đợi phân tích hoàn tất để hiển thị gợi ý...</li>
+            </ul>
+          </div>
+          
+          <!-- Generate Base Price On-demand -->
+          <button id="btn-base-price" style="margin-top: auto; padding: 12px; background: var(--risk-low); color: #000; border: none; font-weight: bold; font-size: 14px; border-radius: 4px; cursor: pointer; transition: all 0.2s; box-shadow: 0 4px 12px rgba(81, 207, 102, 0.2);">⚡ Tính Base Price Nhanh</button>
         </div>
       </div>
 
-      <div id="input-bar">
-        <textarea
-          id="user-input"
-          placeholder="Describe your project or answer the question..."
-          rows="1"
-          aria-label="Your message"
-        ></textarea>
-        <button id="send-btn" title="Send (Enter)" aria-label="Send message">➤</button>
+      <!-- Compact Status Footer -->
+      <div id="inline-status-bar" style="background: rgba(0,0,0,0.4); padding: 8px 12px; border-top: 1px solid rgba(255,255,255,0.05); font-size: 12px; color: var(--text-muted); display: flex; align-items: center; gap: 8px;">
+        <span id="inline-status-icon">⚪</span>
+        <span id="inline-status-text">Ready. Please complete Phase 0.</span>
       </div>
     </section>
 
@@ -234,10 +256,11 @@
 
         <!-- Placeholder (shown before report is ready) -->
         <div id="report-placeholder">
-          <div class="placeholder-ring">⏳</div>
-          <h3>Awaiting Analysis</h3>
+          <div class="placeholder-ring">📊</div>
+          <h3>Base Price Report</h3>
           <p>
-            Complete the conversation to estimate all 12 Effort Multipliers. The price report will generate automatically.
+            Nạp hồ sơ và transcript trò chuyện, sau đó nhấn <strong>⚡ Tính Base Price Nhanh</strong> để xem báo cáo.
+            Có thể tạo báo cáo bất kỳ lúc nào, kể cả khi chưa đủ 12 tham số.
           </p>
         </div>
 
@@ -296,66 +319,15 @@
 
               <div class="override-row-2col">
                 <div class="override-field">
-                  <label class="override-label" for="ov-data-risk">
-                    Data Risk
-                    <span class="current-val" id="ov-data-risk-cur">—</span>
-                  </label>
-                  <select id="ov-data-risk" class="override-select" aria-label="Override Data Risk">
-                    <option value="">AI Default</option>
-                    <option value="LOW">LOW</option>
-                    <option value="MEDIUM">MEDIUM</option>
-                    <option value="HIGH">HIGH</option>
-                    <option value="FALLBACK">FALLBACK</option>
-                  </select>
-                </div>
-
-                <div class="override-field">
-                  <label class="override-label" for="ov-int-risk">
-                    Integration Risk
-                    <span class="current-val" id="ov-int-risk-cur">—</span>
-                  </label>
-                  <select id="ov-int-risk" class="override-select" aria-label="Override Integration Risk">
-                    <option value="">AI Default</option>
-                    <option value="LOW">LOW</option>
-                    <option value="MEDIUM">MEDIUM</option>
-                    <option value="HIGH">HIGH</option>
-                  </select>
-                </div>
-
-                <div class="override-field">
-                  <label class="override-label" for="ov-tech-risk">
-                    Training Risk
-                    <span class="current-val" id="ov-tech-risk-cur">—</span>
-                  </label>
-                  <select id="ov-tech-risk" class="override-select" aria-label="Override Tech Literacy Risk">
-                    <option value="">AI Default</option>
-                    <option value="LOW">LOW</option>
-                    <option value="MEDIUM">MEDIUM</option>
-                    <option value="HIGH">HIGH</option>
-                  </select>
-                </div>
-
-                <div class="override-field">
-                  <label class="override-label" for="ov-strategy">
-                    Strategy
-                    <span class="current-val" id="ov-strategy-cur">HUNTER</span>
-                  </label>
-                  <select id="ov-strategy" class="override-select" aria-label="Override Commercial Strategy">
-                    <option value="HUNTER">HUNTER</option>
-                    <option value="FARMER">FARMER</option>
-                  </select>
-                </div>
-              </div>
-
-              <div class="override-row-2col">
-                <div class="override-field">
-                  <label class="override-label" for="ov-mandays">Man-Days</label>
-                  <input id="ov-mandays" class="override-input" type="number" min="1" max="500" placeholder="Auto" aria-label="Override Estimated Man-Days" />
+                  <label class="override-label" for="ov-mandays">Man-Days (AI ước tính)</label>
+                  <input id="ov-mandays" class="override-input" type="number" min="1" max="500" placeholder="Auto (AI)"
+                    aria-label="Override Estimated Man-Days" />
                 </div>
 
                 <div class="override-field">
                   <label class="override-label" for="ov-role">Primary Role</label>
                   <select id="ov-role" class="override-select" aria-label="Override Primary Role">
+                    <option value="">Auto (AI)</option>
                     <option value="Senior">Senior</option>
                     <option value="Junior">Junior</option>
                     <option value="PM">PM</option>
@@ -366,19 +338,15 @@
 
               <div class="override-field">
                 <label class="override-label" for="ov-reason">
-                  Reason for override <span style="color:var(--risk-medium)">*</span>
+                  Lý do Override <span style="color:var(--risk-medium)">*</span>
                 </label>
-                <input
-                  id="ov-reason"
-                  class="override-input"
-                  type="text"
-                  placeholder="e.g. Customer already cleaned their data in Q1 2026..."
-                  aria-label="Override reason (required)"
-                />
+                <input id="ov-reason" class="override-input" type="text"
+                  placeholder="VD: Khách đã chuẩn hoá dữ liệu trước đó..."
+                  aria-label="Override reason (required)" />
               </div>
 
               <button id="override-apply-btn" class="override-apply-btn">
-                <span>⚡</span> Apply Override & Recalculate
+                <span>⚡</span> Áp dụng Override & Tính lại
               </button>
 
               <!-- Audit Log -->
@@ -402,4 +370,5 @@
 
   <script src="app.js"></script>
 </body>
+
 </html>

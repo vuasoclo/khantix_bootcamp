@@ -12,7 +12,12 @@ Use this exact schema:
       "reasoning": "string — explain WHY you chose this specific value, or null"
     }
   ],
-  "nextQuestionToUser": "string",
+  "estimatedManDays": "number — your estimation of base man-days required for this scope (e.g. 5 for simple web, 60 for mid, 200+ for exact), or null if totally unknown",
+  "primaryRole": "Junior | Senior | PM | BA | null",
+  "suggestions": [
+    "string — short bullet point telling the Pre-sales what to ask the client next (e.g., 'Hỏi xem bên họ có API chuẩn không')",
+    "string — another short bullet point"
+  ],
   "allSlotsFilled": false
 }
 
