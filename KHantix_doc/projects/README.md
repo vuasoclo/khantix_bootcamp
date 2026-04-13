@@ -1,6 +1,5 @@
-# Khantix - Hướng dẫn Triển khai Hệ thống AI Recommendation Price For Pre-sales (Dành cho Dev Team)
+Triển khai Hệ thống AI Recommendation Price For Pre-sales (Dành cho Dev Team)
 
-Dưới đây là cẩm nang đọc hiểu để anh em nắm bắt Flow dự án và triển khai.
 
 ---
 
@@ -11,7 +10,7 @@ Hệ thống gồm 3 tầng (Tương ứng với 3 Lớp công thức):
     *   *Nhiệm vụ:* Trò chuyện với khách hàng bằng ngôn ngữ đời thường. Đi tìm các "Triệu chứng" kỹ thuật ẩn giấu.
     *   *Kỹ thuật triển khai:* Gọi Gemini/ChatGPT API kèm `<System Role>` và `<Heuristic_Dictionary>`.
 *   **Tầng 2: The Inferencer (Trình nội suy JSON)**
-    *   *Nhiệm vụ:* Bắt LLM trả về các Slot (Mức độ Rủi ro, Quy mô) theo định dạng JSON cố định.
+    *   *Nhiệm vụ:* Bắt LLM trả về các Slot (Mức độ Rủi ro, Quy mô) t heo định dạng JSON cố định.
     *   *Kỹ thuật triển khai:* Regex/JSON Parse từ phản hồi của LLM sau mỗi lượt chat.
 *   **Tầng 3: The Calculator (Máy tính Back-end)**
     *   *Nhiệm vụ:* Hứng file JSON từ Tầng 2, trộn với `internal_configs.csv` (Tham số công ty) và đẩy vào 3 Lớp Công thức để sinh ra Báo giá cuối cùng.
@@ -19,8 +18,7 @@ Hệ thống gồm 3 tầng (Tương ứng với 3 Lớp công thức):
 ---
 
 ## 2. THỨ TỰ ĐỌC TÀI LIỆU KHUYẾN NGHỊ (LUỒNG NHẬN THỨC)
-
-Anh em tuyệt đối không đọc dàn trải. Hãy đọc theo thứ tự sau để hiểu rõ tại sao ta phải code như vậy:
+ tuyệt đối không đọc dàn trải. Hãy đọc theo thứ tự sau để hiểu rõ tại sao ta phải code như vậy:
 
 ### 📖 GIAI ĐOẠN 1: TƯ DUY TOÁN HỌC (Nhân sự Back-end đọc kỹ)
 Đây là móng của ngôi nhà. Bắt buộc Back-end phải code được hàm tính giá dựa trên 3 file này.
@@ -41,8 +39,6 @@ Khởi tạo cấu trúc bảng từ các file sau:
 9.  **`heuristic_matrix.csv`**: Chứa toàn bộ "Từ điển Triệu chứng" (VD: Khách nói "Anh dùng Zalo" $\rightarrow$ `Risk: HIGH`).
 10. **`KHantix - Cấu trúc Prompt Heuristic AI.md`**: **FILE QUAN TRỌNG NHẤT DÀNH CHO DEVS AI.** File này định nghĩa cấu trúc XML + YAML + JSON để anh em đưa cái `heuristic_matrix.csv` vào trong System Instruction của Gemini.
 
-### 📖 GIAI ĐOẠN OVERRIDE: MOCK DATA
-11. **`Khantix - Prompts Gen Mock Data.md`**: Đây là bộ prompt dùng để sinh data giả lập (tôi đã tạo ra 2 file `.csv` ở trên), anh em có thể nhét vào Claude để sinh thêm data test nếu cần (lưu ý dữ liệu phải mapping với KHantix - từ điển tham số định giá), prompt thứ 3 trong file này đưa cho 1 con gemini để nó đóng giả làm khách hàng để test hệ thống.
 
 ---
 
@@ -52,4 +48,3 @@ Khởi tạo cấu trúc bảng từ các file sau:
 - [ ] **Backend (AI):** Dựng pipeline nhận input của user, truyền kèm theo State (các Slot đã biết/chưa biết) cùng Heuristic Matrix (chuyển nhẹ từ CSV -> YAML) gửi lên LLM API theo chuẩn từ file "Cấu trúc Prompt Heuristic AI.md".
 - [ ] **Backend (Parse):** Bắt phản hồi JSON của hệ thống LLM, lấy giá trị biến `updated_slots`, cập nhật database Session, và return câu hỏi trong field `next_question_to_user` ra giao diện Chat.
 
-Chúc anh em code một hệ thống First principle mượt mà, không gặp tí ma sát nào! 🚀

@@ -86,16 +86,32 @@ async function callAnthropic(prompt: string): Promise<string> {
   return block.text;
 }
 
+// ─── Provider: 9Router (Local OpenAI-Compatible Proxy) ────────────────────────
+
+async function call9Router(prompt: string): Promise<string> {
+  const OpenAI = (await import('openai')).default;
+
+  const baseURL = process.env.NINEROUTER_API_BASE ?? 'http://localhost:20128/v1';
+  const model = process.env.NINEROUTER_MODEL ?? 'gemini-3-flash';
+
+  // Use the injected key from .env, or fallback to the generic local string
+  const apiKey = process.env.NINEROUTER_API_KEY || 'sk-local-9router';
+  const client = new OpenAI({ apiKey, baseURL });
+
+  const completion = await client.chat.completions.create({
+    model,
+    messages: [{ role: 'user', content: prompt }],
+    response_format: { type: 'json_object' }, // Assuming your 9router provider/model combo supports JSON
+  });
+
+  return completion.choices[0]?.message?.content ?? '';
+}
+
 // ─── Factory — Picks the right provider from .env ─────────────────────────────
 
 /**
  * Returns a callLlm function wired to whichever provider is set
  * in the LLM_PROVIDER environment variable.
- *
- * Usage:
- *   import { createLlmCaller } from './llm/llm-adapter';
- *   const callLlm = createLlmCaller();
- *   const response = await callLlm(prompt);
  */
 export function createLlmCaller(): LlmCaller {
   const provider = (process.env.LLM_PROVIDER ?? 'gemini').toLowerCase();
@@ -113,10 +129,14 @@ export function createLlmCaller(): LlmCaller {
       console.log(`[KHantix] LLM provider: Anthropic Claude (${process.env.ANTHROPIC_MODEL ?? 'claude-3-5-haiku-20241022'})`);
       return callAnthropic;
 
+    case '9router':
+      console.log(`[KHantix] LLM provider: 9Router (${process.env.NINEROUTER_API_BASE ?? 'http://localhost:20128/v1'} using ${process.env.NINEROUTER_MODEL ?? 'default model'})`);
+      return call9Router;
+
     default:
       throw new Error(
         `[KHantix] Unknown LLM_PROVIDER="${provider}". ` +
-        `Valid options: "gemini", "openai", "anthropic"`
+        `Valid options: "gemini", "openai", "anthropic", "9router"`
       );
   }
 }
