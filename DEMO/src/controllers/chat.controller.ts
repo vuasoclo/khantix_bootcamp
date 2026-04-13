@@ -1,0 +1,256 @@
+import { Request, Response } from 'express';
+import { createLlmCaller } from '../llm/llm-adapter';
+import { sessionRepository } from '../repositories/session.repository';
+import { loadHeuristicMatrixV2 } from '../config/heuristic-v2.loader';
+
+const { definitions: emDefinitionsMap, rules: emRules } = loadHeuristicMatrixV2();
+const emDefinitionsArr = Array.from(emDefinitionsMap.values());
+
+let callLlm: ReturnType<typeof createLlmCaller>;
+try {
+  callLlm = createLlmCaller();
+} catch (err: any) {
+  // It will be caught on startup in server.ts.
+}
+
+export const analyzeTranscript = async (req: Request, res: Response) => {
+  const { sessionId, transcript } = req.body;
+  if (!sessionId || !transcript?.trim()) {
+    return res.status(400).json({ error: 'sessionId and transcript are required' });
+  }
+
+  const serverSession = sessionRepository.getOrCreate(sessionId, emDefinitionsArr);
+
+  try {
+    const result = await serverSession.investigator.runTurn(
+      transcript.trim(),
+      serverSession.session,
+      callLlm,
+      emRules
+    );
+
+    serverSession.session = result.session;
+    sessionRepository.set(sessionId, serverSession);
+
+    const filled = result.session.emSet.multipliers.filter(m => m.value !== null).length;
+    const turnCount = result.session.conversationHistory.length / 2;
+    console.log(`[Chat] ${sessionId} | Turn ${turnCount} | EMs: ${filled}/12 | Done: ${result.done}`);
+
+    return res.json({
+      suggestions: result.suggestions,
+      effortMultipliers: result.session.emSet.multipliers,
+      compoundMultiplier: result.session.emSet.compoundMultiplier,
+      effectiveBufferPercent: result.session.emSet.effectiveBufferPercent,
+      filledCount: filled,
+      totalCount: 12,
+      allSlotsFilled: result.done,
+      turnCount,
+    });
+  } catch (err: any) {
+    console.error(`[Transcript] Error in session ${sessionId}:`, err.message);
+    return res.status(500).json({ error: 'LLM call failed', detail: err.message });
+  }
+};
+
+export const profile = async (req: Request, res: Response) => {
+  const { sessionId, projectContext } = req.body;
+  if (!projectContext?.trim()) {
+    return res.status(400).json({ error: 'projectContext is required' });
+  }
+
+  const sid = sessionId || `KHX-${Date.now()}`;
+  const serverSession = sessionRepository.getOrCreate(sid, emDefinitionsArr);
+
+  let heuristicText = '';
+  const ruleGroups = new Map<string, string[]>();
+  for (const r of emRules) {
+    const line = `- Keywords: ${JSON.stringify(r.keywords)} -> Target Default Value: ${r.emDefault} (Min: ${r.emMin}, Max: ${r.emMax}, Reason: ${r.reasoningHint})`;
+    if (!ruleGroups.has(r.emId)) ruleGroups.set(r.emId, []);
+    ruleGroups.get(r.emId)!.push(line);
+  }
+  for (const [emId, lines] of ruleGroups.entries()) {
+    heuristicText += `[${emId}]\n${lines.join('\n')}\n\n`;
+  }
+
+  const bouncerPrompt = `You are a B2B Enterprise IT sales qualification system.
+
+Analyze this project brief and determine:
+1. Is this a valid B2B Enterprise project? (NOT a student project, personal tool, or budget under 150 million VND)
+2. If valid, extract Effort Multiplier values ONLY when you have DIRECT EVIDENCE in the brief.
+
+Project Brief:
+"""
+${projectContext.trim()}
+"""
+
+REJECTION KEYWORDS: If you see any of these: "sinh viên", "đồ án", "bài tập", "cá nhân", "miễn phí", "student", "personal", "homework", "free" — you MUST reject.
+
+EM DEFINITIONS (CRITICAL — Only assign if DIRECT EVIDENCE exists in the brief):
+- EM_D1: How is data STORED? (Excel/PDF = high, SQL/ERP = low). NOT from job titles.
+- EM_D2: How MUCH data? (years × records). NOT from company size alone.
+- EM_D3: Is data CLEAN? Need explicit complaint about errors/mismatch.
+- EM_I1: Does system have APIs? Need explicit mention of integration.
+- EM_I2: How OLD is their software? Need explicit year/version.
+- EM_T1: Will users RESIST change? Need explicit adoption concern.
+- EM_T2: Have users used SIMILAR B2B software? Need explicit experience.
+- EM_B1: On-site or Remote? Need explicit location discussion.
+- EM_B2: Special HARDWARE needed? Need explicit requirement.
+- EM_C1: How URGENT? Need explicit deadline.
+- EM_C2: Enterprise SLA/compliance? Need explicit mention.
+- EM_C3: Payment terms? Need EXPLICIT payment discussion.
+
+HEURISTIC RULES MATRIX (Use the Target Default Value if keywords match. You can adjust slightly within the [Min, Max] range if context is more/less extreme):
+${heuristicText}
+
+STRICT: If no direct evidence → value MUST be null. Job title → null. Person name → null.
+
+Return JSON only:
+{
+  "isValid": true or false,
+  "rejectionReason": "string or null",
+  "effortMultipliers": [
+    {
+      "em_id": "EM_D1 | EM_D2 | ... | EM_C3",
+      "action": "FILL",
+      "value": "number or null",
+      "confidence": "high | medium | low",
+      "source": "ai_inference_from_context",
+      "evidence": "exact quote from the brief, or null",
+      "reasoning": "why this value, referencing EM definition"
+    }
+  ],
+  "estimatedManDays": "number or null",
+  "primaryRole": "Junior | Senior | PM | BA | null",
+  "suggestions": ["string — what to discuss first in the meeting"]
+}`;
+
+  try {
+    const rawResponse = await callLlm(bouncerPrompt);
+
+    let parsed: any;
+    try {
+      const jsonMatch = rawResponse.match(/\{[\s\S]*\}/);
+      parsed = jsonMatch ? JSON.parse(jsonMatch[0]) : null;
+    } catch {
+      parsed = null;
+    }
+
+    if (!parsed) {
+      return res.status(500).json({ error: 'Failed to parse AI response' });
+    }
+
+    if (!parsed.isValid) {
+      console.log(`[Profile] REJECTED session ${sid}: ${parsed.rejectionReason}`);
+      return res.status(400).json({
+        rejected: true,
+        reason: parsed.rejectionReason || 'Hệ thống chuyên biệt B2B Enterprise, không phục vụ đồ án cá nhân.',
+      });
+    }
+
+    if (parsed.effortMultipliers && Array.isArray(parsed.effortMultipliers)) {
+      for (const aiEM of parsed.effortMultipliers) {
+        const existing = serverSession.session.emSet.multipliers.find(m => m.em_id === aiEM.em_id);
+        if (existing && aiEM.value !== null) {
+          existing.value = Math.max(existing.range[0], Math.min(existing.range[1], aiEM.value));
+          existing.confidence = aiEM.confidence ?? 'medium';
+          existing.source = aiEM.source ?? 'ai_inference_from_context';
+          existing.evidence = aiEM.evidence ?? null;
+          existing.reasoning = aiEM.reasoning ?? null;
+          existing.status = 'ai_pending';
+        }
+      }
+    }
+
+    if (parsed.estimatedManDays) {
+      serverSession.session.emSet.estimatedManDays = parsed.estimatedManDays;
+    }
+    if (parsed.primaryRole) {
+      serverSession.session.emSet.primaryRole = parsed.primaryRole;
+    }
+    if (parsed.suggestions) {
+      serverSession.session.emSet.suggestions = parsed.suggestions;
+    }
+
+    serverSession.session.conversationHistory.push({
+      role: 'user',
+      content: `[Hồ sơ trước báo giá]: ${projectContext.trim()}`,
+    });
+
+    sessionRepository.set(sid, serverSession);
+
+    const filled = serverSession.session.emSet.multipliers.filter(m => m.value !== null).length;
+    console.log(`[Profile] ACCEPTED session ${sid} | Pre-filled EMs: ${filled}/12`);
+
+    return res.json({
+      sessionId: sid,
+      accepted: true,
+      suggestions: parsed.suggestions || [],
+      effortMultipliers: serverSession.session.emSet.multipliers,
+      filledCount: filled,
+      totalCount: 12,
+      estimatedManDays: serverSession.session.emSet.estimatedManDays,
+      primaryRole: serverSession.session.emSet.primaryRole,
+    });
+  } catch (err: any) {
+    console.error(`[Profile] Error:`, err.message);
+    return res.status(500).json({ error: 'Profile analysis failed', detail: err.message });
+  }
+};
+
+export const confirmEm = (req: Request, res: Response) => {
+  const { sessionId, em_id, action, newValue, reason } = req.body;
+  if (!sessionId || !em_id || !action) {
+    return res.status(400).json({ error: 'sessionId, em_id, and action are required' });
+  }
+
+  const serverSession = sessionRepository.get(sessionId);
+  if (!serverSession) {
+    return res.status(404).json({ error: `Session "${sessionId}" not found` });
+  }
+
+  const em = serverSession.session.emSet.multipliers.find(m => m.em_id === em_id);
+  if (!em) {
+    return res.status(404).json({ error: `EM "${em_id}" not found` });
+  }
+
+  if (action === 'confirm') {
+    em.status = 'confirmed';
+    em.confirmedBy = 'pre-sales';
+    console.log(`[ConfirmEM] ${sessionId} | ${em_id} CONFIRMED at ${em.value}`);
+  } else if (action === 'adjust') {
+    const adjustedValue = parseFloat(newValue);
+    if (isNaN(adjustedValue)) {
+      return res.status(400).json({ error: 'newValue must be a valid number' });
+    }
+    em.previousValue = em.value;
+    em.value = Math.max(em.range[0], Math.min(em.range[1], adjustedValue));
+    em.status = 'confirmed';
+    em.confirmedBy = 'pre-sales';
+    em.confirmReason = reason || '';
+    console.log(`[ConfirmEM] ${sessionId} | ${em_id} ADJUSTED ${em.previousValue} → ${em.value} | Reason: ${reason}`);
+  } else {
+    return res.status(400).json({ error: 'action must be "confirm" or "adjust"' });
+  }
+
+  const riskIds = ['EM_D1', 'EM_D2', 'EM_D3', 'EM_I1', 'EM_I2', 'EM_T1', 'EM_T2'];
+  let compound = 1.0;
+  for (const m of serverSession.session.emSet.multipliers) {
+    if (riskIds.includes(m.em_id) && m.value !== null) {
+      compound *= Math.max(m.range[0], Math.min(m.range[1], m.value));
+    }
+  }
+  serverSession.session.emSet.compoundMultiplier = compound;
+  serverSession.session.emSet.effectiveBufferPercent = `+${((compound - 1) * 100).toFixed(1)}%`;
+
+  sessionRepository.set(sessionId, serverSession);
+
+  const filled = serverSession.session.emSet.multipliers.filter(m => m.value !== null).length;
+
+  return res.json({
+    success: true,
+    effortMultipliers: serverSession.session.emSet.multipliers,
+    compoundMultiplier: serverSession.session.emSet.compoundMultiplier,
+    effectiveBufferPercent: serverSession.session.emSet.effectiveBufferPercent,
+    filledCount: filled,
+  });
+};

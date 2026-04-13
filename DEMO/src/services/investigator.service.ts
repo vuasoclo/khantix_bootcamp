@@ -52,7 +52,8 @@ export class InvestigatorService {
   async runTurn(
     userMessage: string,
     session: EMSessionState,
-    callLlm: (prompt: string) => Promise<string>
+    callLlm: (prompt: string) => Promise<string>,
+    heuristicRules: { emId: string; keywords: string[]; emDefault: number; reasoningHint: string }[]
   ): Promise<{ session: EMSessionState; suggestions: string[]; done: boolean }> {
     const contract = this.strategy.build();
 
@@ -75,9 +76,21 @@ ${missingEMs.join('\n') || '  (all filled!)'}
 Compound risk multiplier so far: ${session.emSet.compoundMultiplier.toFixed(3)}
 `;
 
+    // Group heuristic rules by emId to feed to LLM
+    const ruleGroups = new Map<string, string[]>();
+    for (const r of heuristicRules) {
+      const line = `- Keywords: ${JSON.stringify(r.keywords)} -> Target Default Value: ${r.emDefault} (Reason: ${r.reasoningHint})`;
+      if (!ruleGroups.has(r.emId)) ruleGroups.set(r.emId, []);
+      ruleGroups.get(r.emId)!.push(line);
+    }
+    let heuristicText = 'HEURISTIC RULES MATRIX (Use the Target Default Value if keywords match. You can adjust slightly within the provided missing EM range if the context is more/less extreme than the keywords):\n';
+    for (const [emId, lines] of ruleGroups.entries()) {
+      heuristicText += `[${emId}]\n${lines.join('\n')}\n\n`;
+    }
+
     const prompt = new PromptBuilder()
       .withSystem(contract.systemPrompt)
-      .withDeveloper(contract.developerPrompt + '\n\n' + stateContext)
+      .withDeveloper(contract.developerPrompt + '\n\n' + heuristicText + stateContext)
       .withOutputFormat(contract.outputFormatPrompt)
       .withUserInput(`Transcript:\n${userMessage}`)
       .build();

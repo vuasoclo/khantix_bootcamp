@@ -16,7 +16,11 @@ function createEmptyEMSet(definitions) {
             source: 'unknown_after_3_attempts',
             evidence: null,
             reasoning: null,
-            status: 'empty'
+            reasoningHistory: [],
+            status: 'empty',
+            confirmedBy: null,
+            confirmReason: null,
+            previousValue: null,
         })),
         compoundMultiplier: 1.0,
         effectiveBufferPercent: '+0.0%',

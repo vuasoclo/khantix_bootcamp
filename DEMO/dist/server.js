@@ -59,6 +59,7 @@ const investigator_service_1 = require("./services/investigator.service");
 const em_calculator_1 = require("./calculators/em.calculator");
 const llm_adapter_1 = require("./llm/llm-adapter");
 const heuristic_v2_loader_1 = require("./config/heuristic-v2.loader");
+const markdown_report_generator_1 = require("./utils/markdown-report.generator");
 // ─── Startup ──────────────────────────────────────────────────────────────────
 const PORT = parseInt(process.env.PORT ?? '3000', 10);
 console.log('\n╔══════════════════════════════════════════════════╗');
@@ -143,45 +144,6 @@ app.post('/api/analyze-transcript', async (req, res) => {
         return res.status(500).json({ error: 'LLM call failed', detail: err.message });
     }
 });
-// ─── Route: Confirm EM (Inline Adjust / Confirm) ──────────────────────────────
-app.post('/api/confirm-em', (req, res) => {
-    const { sessionId, em_id, action, newValue, reason } = req.body;
-    // action: 'confirm' | 'adjust'
-    const serverSession = sessions.get(sessionId);
-    if (!serverSession) {
-        return res.status(404).json({ error: `Session "${sessionId}" not found` });
-    }
-    const em = serverSession.session.emSet.multipliers.find(m => m.em_id === em_id);
-    if (!em) {
-        return res.status(400).json({ error: `EM ${em_id} not found` });
-    }
-    if (action === 'confirm') {
-        em.status = 'confirmed';
-        em.confirmedBy = 'pre-sales';
-    }
-    else if (action === 'adjust') {
-        em.previousValue = em.value;
-        em.value = newValue;
-        em.status = 'confirmed';
-        em.confirmedBy = 'pre-sales';
-        em.confirmReason = reason;
-    }
-    let compound = 1.0;
-    const riskIds = ['EM_D1', 'EM_D2', 'EM_D3', 'EM_I1', 'EM_I2', 'EM_T1', 'EM_T2'];
-    for (const item of serverSession.session.emSet.multipliers) {
-        if (riskIds.includes(item.em_id) && item.value !== null) {
-            compound *= Math.max(item.range[0], Math.min(item.range[1], item.value));
-        }
-    }
-    serverSession.session.emSet.compoundMultiplier = compound;
-    serverSession.session.emSet.effectiveBufferPercent = `+${((compound - 1) * 100).toFixed(1)}%`;
-    return res.json({
-        success: true,
-        effortMultipliers: serverSession.session.emSet.multipliers,
-        compoundMultiplier: serverSession.session.emSet.compoundMultiplier,
-        effectiveBufferPercent: serverSession.session.emSet.effectiveBufferPercent
-    });
-});
 // ─── Route: Profile (Bouncer / Pre-qualification) ─────────────────────────────
 app.post('/api/profile', async (req, res) => {
     const { sessionId, projectContext } = req.body;
@@ -190,30 +152,12 @@ app.post('/api/profile', async (req, res) => {
     }
     const sid = sessionId || `KHX-${Date.now()}`;
     const serverSession = getOrCreateSession(sid);
-    // Build a classification prompt — the Bouncer
+    // Build a classification prompt — the Bouncer (with Anti-Hallucination)
     const bouncerPrompt = `You are a B2B Enterprise IT sales qualification system.
 
 Analyze this project brief and determine:
 1. Is this a valid B2B Enterprise project? (NOT a student project, personal tool, or budget under 150 million VND)
-2. If valid, extract any Effort Multiplier values you can infer from the context.
-
-EM DEFINITIONS (Only assign if you have DIRECT evidence):
-- EM_D1: How is data STORED? (Excel/PDF = high, SQL/ERP = low). NOT about job titles.
-- EM_D2: How MUCH data? (years × records). NOT about company size.
-- EM_D3: Is data CLEAN? (frequent errors = high). Need explicit complaints about data quality.
-- EM_I1: Does their system have APIs? Need explicit mention of API/integration capability.
-- EM_I2: How OLD is their current software? Need explicit age or version info.
-- EM_T1: Will end-users RESIST change? Need explicit concern about adoption.
-- EM_T2: Have users used SIMILAR software before? Need explicit past experience.
-- EM_B1: On-site or Remote delivery? Need explicit location discussion.
-- EM_B2: Special HARDWARE needed? (barcode scanner, GPS, etc.) Need explicit requirement.
-- EM_C1: How URGENT is the timeline? Need explicit deadline pressure.
-- EM_C2: Enterprise SLA/Compliance requirements? Need explicit compliance discussion.
-- EM_C3: Payment terms discussed? (upfront vs installments). Need EXPLICIT payment discussion.
-
-CRITICAL: If the transcript does NOT contain direct evidence for an EM, you MUST set its value to null.
-Do NOT infer from job titles, company names, or communication channels.
-"I don't know" from the customer = set value to null, NOT to a default.
+2. If valid, extract Effort Multiplier values ONLY when you have DIRECT EVIDENCE in the brief.
 
 Project Brief:
 """
@@ -222,10 +166,26 @@ ${projectContext.trim()}
 
 REJECTION KEYWORDS: If you see any of these: "sinh viên", "đồ án", "bài tập", "cá nhân", "miễn phí", "student", "personal", "homework", "free" — you MUST reject.
 
+EM DEFINITIONS (CRITICAL — Only assign if DIRECT EVIDENCE exists in the brief):
+- EM_D1: How is data STORED? (Excel/PDF = high, SQL/ERP = low). NOT from job titles.
+- EM_D2: How MUCH data? (years × records). NOT from company size alone.
+- EM_D3: Is data CLEAN? Need explicit complaint about errors/mismatch.
+- EM_I1: Does system have APIs? Need explicit mention of integration.
+- EM_I2: How OLD is their software? Need explicit year/version.
+- EM_T1: Will users RESIST change? Need explicit adoption concern.
+- EM_T2: Have users used SIMILAR B2B software? Need explicit experience.
+- EM_B1: On-site or Remote? Need explicit location discussion.
+- EM_B2: Special HARDWARE needed? Need explicit requirement.
+- EM_C1: How URGENT? Need explicit deadline.
+- EM_C2: Enterprise SLA/compliance? Need explicit mention.
+- EM_C3: Payment terms? Need EXPLICIT payment discussion.
+
+STRICT: If no direct evidence → value MUST be null. Job title → null. Person name → null.
+
 Return JSON only:
 {
   "isValid": true or false,
-  "rejectionReason": "string explaining why rejected, or null if valid",
+  "rejectionReason": "string or null",
   "effortMultipliers": [
     {
       "em_id": "EM_D1 | EM_D2 | ... | EM_C3",
@@ -233,8 +193,8 @@ Return JSON only:
       "value": "number or null",
       "confidence": "high | medium | low",
       "source": "ai_inference_from_context",
-      "evidence": "quote from the brief",
-      "reasoning": "why this value"
+      "evidence": "exact quote from the brief, or null",
+      "reasoning": "why this value, referencing EM definition"
     }
   ],
   "estimatedManDays": "number or null",
@@ -263,7 +223,7 @@ Return JSON only:
                 reason: parsed.rejectionReason || 'Hệ thống chuyên biệt B2B Enterprise, không phục vụ đồ án cá nhân.',
             });
         }
-        // Valid — merge pre-extracted EMs into session
+        // Valid — merge pre-extracted EMs into session (with status tracking)
         if (parsed.effortMultipliers && Array.isArray(parsed.effortMultipliers)) {
             for (const aiEM of parsed.effortMultipliers) {
                 const existing = serverSession.session.emSet.multipliers.find(m => m.em_id === aiEM.em_id);
@@ -271,8 +231,8 @@ Return JSON only:
                     existing.value = Math.max(existing.range[0], Math.min(existing.range[1], aiEM.value));
                     existing.confidence = aiEM.confidence ?? 'medium';
                     existing.source = aiEM.source ?? 'ai_inference_from_context';
-                    existing.evidence = aiEM.evidence;
-                    existing.reasoning = aiEM.reasoning;
+                    existing.evidence = aiEM.evidence ?? null;
+                    existing.reasoning = aiEM.reasoning ?? null;
                     existing.status = 'ai_pending';
                 }
             }
@@ -309,18 +269,90 @@ Return JSON only:
         return res.status(500).json({ error: 'Profile analysis failed', detail: err.message });
     }
 });
+// ─── Route: Confirm EM (Pre-sales inline confirm/adjust) ──────────────────────
+app.post('/api/confirm-em', (req, res) => {
+    const { sessionId, em_id, action, newValue, reason } = req.body;
+    if (!sessionId || !em_id || !action) {
+        return res.status(400).json({ error: 'sessionId, em_id, and action are required' });
+    }
+    const serverSession = sessions.get(sessionId);
+    if (!serverSession) {
+        return res.status(404).json({ error: `Session "${sessionId}" not found` });
+    }
+    const em = serverSession.session.emSet.multipliers.find(m => m.em_id === em_id);
+    if (!em) {
+        return res.status(404).json({ error: `EM "${em_id}" not found` });
+    }
+    if (action === 'confirm') {
+        em.status = 'confirmed';
+        em.confirmedBy = 'pre-sales';
+        console.log(`[ConfirmEM] ${sessionId} | ${em_id} CONFIRMED at ${em.value}`);
+    }
+    else if (action === 'adjust') {
+        const adjustedValue = parseFloat(newValue);
+        if (isNaN(adjustedValue)) {
+            return res.status(400).json({ error: 'newValue must be a valid number' });
+        }
+        em.previousValue = em.value;
+        em.value = Math.max(em.range[0], Math.min(em.range[1], adjustedValue));
+        em.status = 'confirmed';
+        em.confirmedBy = 'pre-sales';
+        em.confirmReason = reason || '';
+        console.log(`[ConfirmEM] ${sessionId} | ${em_id} ADJUSTED ${em.previousValue} → ${em.value} | Reason: ${reason}`);
+    }
+    else {
+        return res.status(400).json({ error: 'action must be "confirm" or "adjust"' });
+    }
+    // Recompute compound multiplier
+    const riskIds = ['EM_D1', 'EM_D2', 'EM_D3', 'EM_I1', 'EM_I2', 'EM_T1', 'EM_T2'];
+    let compound = 1.0;
+    for (const m of serverSession.session.emSet.multipliers) {
+        if (riskIds.includes(m.em_id) && m.value !== null) {
+            compound *= Math.max(m.range[0], Math.min(m.range[1], m.value));
+        }
+    }
+    serverSession.session.emSet.compoundMultiplier = compound;
+    serverSession.session.emSet.effectiveBufferPercent = `+${((compound - 1) * 100).toFixed(1)}%`;
+    const filled = serverSession.session.emSet.multipliers.filter(m => m.value !== null).length;
+    return res.json({
+        success: true,
+        effortMultipliers: serverSession.session.emSet.multipliers,
+        compoundMultiplier: serverSession.session.emSet.compoundMultiplier,
+        effectiveBufferPercent: serverSession.session.emSet.effectiveBufferPercent,
+        filledCount: filled,
+    });
+});
 // ─── Route: Base Report (On-demand, any time) ─────────────────────────────────
 app.get('/api/base-report', (req, res) => {
     const sessionId = req.query.sessionId;
     if (!sessionId) {
         return res.status(400).json({ error: 'sessionId query param is required' });
     }
+    const manDaysOverride = req.query.estimatedManDays ? parseInt(req.query.estimatedManDays, 10) : null;
+    const roleOverride = req.query.primaryRole;
+    const userCountOverride = req.query.userCount ? parseInt(req.query.userCount, 10) : 100;
     const serverSession = sessions.get(sessionId);
     if (!serverSession) {
         return res.status(404).json({ error: `Session "${sessionId}" not found` });
     }
     const emSet = serverSession.session.emSet;
-    // Categorize EMs
+    // Calculate Base Price (sum of components)
+    const manDays = manDaysOverride || emSet.estimatedManDays || 60;
+    const role = roleOverride || emSet.primaryRole || 'Senior';
+    const rateMap = {
+        Junior: config.Rate_Dev_Junior,
+        Senior: config.Rate_Dev_Senior,
+        PM: config.Rate_PM,
+        BA: config.Rate_BA,
+    };
+    const dailyRate = rateMap[role] || config.Rate_Dev_Senior;
+    const laborCost = manDays * dailyRate;
+    const serverCost = config.Server_Base_Cost_Per_1K_Users * (userCountOverride / 1000);
+    const licenseCost = laborCost * 0.2 * (1 - config.Reuse_Factor_Default);
+    const baseCost = laborCost + serverCost + licenseCost;
+    // Apply Risk Multiplier for the "Recommended" fast view
+    const totalRecommendedPrice = baseCost * emSet.compoundMultiplier;
+    // Categorize EMs with full history
     const filledEMs = emSet.multipliers
         .filter(m => m.value !== null)
         .map(m => ({
@@ -330,6 +362,7 @@ app.get('/api/base-report', (req, res) => {
         confidence: m.confidence,
         evidence: m.evidence,
         reasoning: m.reasoning,
+        reasoningHistory: m.reasoningHistory, // Full history of thoughts
     }));
     const missingEMs = emSet.multipliers
         .filter(m => m.value === null)
@@ -338,24 +371,11 @@ app.get('/api/base-report', (req, res) => {
         name: m.name,
         range: m.range,
     }));
-    // Calculate Base Price (using 1.0 for missing EMs — no risk buffer)
-    const manDays = emSet.estimatedManDays ?? 60;
-    const role = emSet.primaryRole ?? 'Senior';
-    const rateMap = {
-        Junior: config.Rate_Dev_Junior,
-        Senior: config.Rate_Dev_Senior,
-        PM: config.Rate_PM,
-        BA: config.Rate_BA,
-    };
-    const dailyRate = rateMap[role] || config.Rate_Dev_Senior;
-    const laborCost = manDays * dailyRate;
-    const serverCost = config.Server_Base_Cost_Per_1K_Users;
-    const licenseCost = laborCost * 0.2 * (1 - config.Reuse_Factor_Default);
-    const baseCost = laborCost + serverCost + licenseCost;
-    console.log(`[BaseReport] ${sessionId} | Base: ${baseCost.toLocaleString()} VND | ManDays: ${manDays} | Role: ${role} | Filled: ${filledEMs.length}/12`);
+    console.log(`[BaseReport] ${sessionId} | Total: ${totalRecommendedPrice.toLocaleString()} VND (Base: ${baseCost.toLocaleString()}) | Filled: ${filledEMs.length}/12`);
     return res.json({
         sessionId,
         baseCost,
+        totalRecommendedPrice,
         estimatedManDays: manDays,
         primaryRole: role,
         dailyRate,
@@ -397,6 +417,36 @@ app.post('/api/calculate', (req, res) => {
         return res.status(500).json({ error: 'Calculation failed', detail: err.message });
     }
 });
+// ─── Route: Generate Report (On-demand) ──────────────────────────────────────
+app.get('/api/report', (req, res) => {
+    const sessionId = req.query.sessionId;
+    const estimatedManDays = req.query.estimatedManDays ? parseInt(req.query.estimatedManDays) : undefined;
+    const primaryRole = req.query.primaryRole;
+    const userCount = req.query.userCount ? parseInt(req.query.userCount) : undefined;
+    if (!sessionId) {
+        return res.status(400).json({ error: 'sessionId is required' });
+    }
+    const serverSession = sessions.get(sessionId);
+    if (!serverSession) {
+        return res.status(404).json({ error: `Session "${sessionId}" not found` });
+    }
+    const input = {
+        emSet: serverSession.session.emSet,
+        estimatedManDays: estimatedManDays ?? serverSession.session.emSet.estimatedManDays ?? 60,
+        primaryRole: primaryRole ?? serverSession.session.emSet.primaryRole ?? 'Senior',
+        userCount: userCount ?? 100,
+        emDefinitions: emDefinitionsMap,
+    };
+    try {
+        const result = (0, em_calculator_1.calculateWithEM)(input, config);
+        const markdown = (0, markdown_report_generator_1.generateMarkdownReport)(sessionId, result);
+        return res.json({ markdown });
+    }
+    catch (err) {
+        console.error(`[Report] Error in session ${sessionId}:`, err.message);
+        return res.status(500).json({ error: 'Report generation failed', detail: err.message });
+    }
+});
 // ─── Route: Override ─────────────────────────────────────────────────────────
 app.post('/api/override', (req, res) => {
     const { sessionId, overriddenBy, emOverrides, calcOverrides, reasons } = req.body;
@@ -426,7 +476,7 @@ app.post('/api/override', (req, res) => {
                 em.value = Math.max(em.range[0], Math.min(em.range[1], newValue));
                 em.source = 'direct_customer_statement';
                 em.confidence = 'high';
-                em.presalesNote = `Overridden by ${overriddenBy ?? 'Pre-sales'}: ${reasons?.[emId] ?? ''}`;
+                em.confirmReason = `Overridden by ${overriddenBy ?? 'Pre-sales'}: ${reasons?.[emId] ?? ''}`;
             }
         }
     }
