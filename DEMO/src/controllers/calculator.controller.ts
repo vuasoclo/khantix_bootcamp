@@ -17,6 +17,7 @@ export const baseReport = (req: Request, res: Response) => {
   const manDaysOverride = req.query.estimatedManDays ? parseInt(req.query.estimatedManDays as string, 10) : null;
   const roleOverride = req.query.primaryRole as string | null;
   const userCountOverride = req.query.userCount ? parseInt(req.query.userCount as string, 10) : 100;
+  const roleAllocationOverride = req.body.roleAllocation || null;
 
   const serverSession = sessionRepository.get(sessionId);
   if (!serverSession) {
@@ -24,18 +25,37 @@ export const baseReport = (req: Request, res: Response) => {
   }
 
   const emSet = serverSession.session.emSet;
+  const userCount = userCountOverride || (typeof emSet.userCount?.value === 'number' ? emSet.userCount.value : null) || 100;
 
-  const manDays = manDaysOverride || emSet.estimatedManDays || 60;
-  const role = roleOverride || emSet.primaryRole || 'Senior';
-  const rateMap: Record<string, number> = {
-    Junior: config.Rate_Dev_Junior,
-    Senior: config.Rate_Dev_Senior,
-    PM: config.Rate_PM,
-    BA: config.Rate_BA,
+  const defaultRoleAllocation = {
+    BA: 0,
+    Senior: emSet.estimatedManDays || 60,
+    Junior: 0,
+    PM: 0,
   };
-  const dailyRate = rateMap[role] || config.Rate_Dev_Senior;
-  const laborCost = manDays * dailyRate;
-  const serverCost = config.Server_Base_Cost_Per_1K_Users * (userCountOverride / 1000);
+  
+  let roleAllocation = defaultRoleAllocation;
+  if (roleAllocationOverride) {
+    roleAllocation = roleAllocationOverride;
+  } else if (emSet.roleAllocation) {
+    roleAllocation = {
+      BA: emSet.roleAllocation.BA?.value || 0,
+      Senior: emSet.roleAllocation.Senior?.value || 0,
+      Junior: emSet.roleAllocation.Junior?.value || 0,
+      PM: emSet.roleAllocation.PM?.value || 0,
+    };
+  }
+
+  const manDays = roleAllocation.BA + roleAllocation.Senior + roleAllocation.Junior + roleAllocation.PM;
+
+  const laborCost = (
+    roleAllocation.BA * config.Rate_BA +
+    roleAllocation.PM * config.Rate_PM +
+    roleAllocation.Senior * config.Rate_Dev_Senior +
+    roleAllocation.Junior * config.Rate_Dev_Junior
+  );
+  
+  const serverCost = config.Server_Base_Cost_Per_1K_Users * Math.max(1, Math.ceil(userCount / 1000));
   const licenseCost = laborCost * 0.2 * (1 - config.Reuse_Factor_Default);
   const baseCost = laborCost + serverCost + licenseCost;
 
@@ -68,8 +88,7 @@ export const baseReport = (req: Request, res: Response) => {
     baseCost,
     totalRecommendedPrice,
     estimatedManDays: manDays,
-    primaryRole: role,
-    dailyRate,
+    roleAllocation,
     laborCost,
     serverCost,
     licenseCost,
@@ -84,7 +103,7 @@ export const baseReport = (req: Request, res: Response) => {
 };
 
 export const calculate = (req: Request, res: Response) => {
-  const { sessionId, estimatedManDays, primaryRole, userCount } = req.body;
+  const { sessionId, roleAllocation, userCount } = req.body;
   if (!sessionId) {
     return res.status(400).json({ error: 'sessionId is required' });
   }
@@ -94,11 +113,28 @@ export const calculate = (req: Request, res: Response) => {
     return res.status(404).json({ error: `Session "${sessionId}" not found` });
   }
 
+  let effectiveRoleAllocation = {
+    BA: 0,
+    Senior: serverSession.session.emSet.estimatedManDays ?? 60,
+    Junior: 0,
+    PM: 0,
+  };
+  if (roleAllocation) {
+    effectiveRoleAllocation = roleAllocation;
+  } else if (serverSession.session.emSet.roleAllocation) {
+    const sr = serverSession.session.emSet.roleAllocation;
+    effectiveRoleAllocation = {
+      BA: sr.BA?.value || 0,
+      Senior: sr.Senior?.value || 0,
+      Junior: sr.Junior?.value || 0,
+      PM: sr.PM?.value || 0,
+    };
+  }
+
   const input: EMCalculatorInput = {
     emSet: serverSession.session.emSet,
-    estimatedManDays: estimatedManDays ?? serverSession.session.emSet.estimatedManDays ?? 60,
-    primaryRole: primaryRole ?? serverSession.session.emSet.primaryRole ?? 'Senior',
-    userCount: userCount ?? 100,
+    roleAllocation: effectiveRoleAllocation,
+    userCount: userCount ?? (typeof serverSession.session.emSet.userCount?.value === 'number' ? serverSession.session.emSet.userCount.value : null) ?? 100,
     emDefinitions: emDefinitionsMap,
   };
 
@@ -114,9 +150,9 @@ export const calculate = (req: Request, res: Response) => {
 
 export const report = (req: Request, res: Response) => {
   const sessionId = req.query.sessionId as string;
-  const estimatedManDays = req.query.estimatedManDays ? parseInt(req.query.estimatedManDays as string) : undefined;
-  const primaryRole = req.query.primaryRole as any;
   const userCount = req.query.userCount ? parseInt(req.query.userCount as string) : undefined;
+  // Fallbacks for query params if roleAllocation is passed
+  const roleAllocationQuery = req.query.roleAllocation ? JSON.parse(req.query.roleAllocation as string) : undefined;
 
   if (!sessionId) {
     return res.status(400).json({ error: 'sessionId is required' });
@@ -127,11 +163,28 @@ export const report = (req: Request, res: Response) => {
     return res.status(404).json({ error: `Session "${sessionId}" not found` });
   }
 
+  let effectiveRoleAllocation = {
+    BA: 0,
+    Senior: serverSession.session.emSet.estimatedManDays ?? 60,
+    Junior: 0,
+    PM: 0,
+  };
+  if (roleAllocationQuery) {
+    effectiveRoleAllocation = roleAllocationQuery;
+  } else if (serverSession.session.emSet.roleAllocation) {
+    const sr = serverSession.session.emSet.roleAllocation;
+    effectiveRoleAllocation = {
+      BA: sr.BA?.value || 0,
+      Senior: sr.Senior?.value || 0,
+      Junior: sr.Junior?.value || 0,
+      PM: sr.PM?.value || 0,
+    };
+  }
+
   const input: EMCalculatorInput = {
     emSet: serverSession.session.emSet,
-    estimatedManDays: estimatedManDays ?? serverSession.session.emSet.estimatedManDays ?? 60,
-    primaryRole: primaryRole ?? serverSession.session.emSet.primaryRole ?? 'Senior',
-    userCount: userCount ?? 100,
+    roleAllocation: effectiveRoleAllocation,
+    userCount: userCount ?? (typeof serverSession.session.emSet.userCount?.value === 'number' ? serverSession.session.emSet.userCount.value : null) ?? 100,
     emDefinitions: emDefinitionsMap,
   };
 
@@ -183,11 +236,28 @@ export const override = (req: Request, res: Response) => {
   serverSession.overrideLogs.push(...logs);
   sessionRepository.set(sessionId, serverSession);
 
+  let effectiveRoleAllocation = {
+    BA: 0,
+    Senior: serverSession.session.emSet.estimatedManDays ?? 60,
+    Junior: 0,
+    PM: 0,
+  };
+  if (calcOverrides?.roleAllocation) {
+    effectiveRoleAllocation = calcOverrides.roleAllocation;
+  } else if (serverSession.session.emSet.roleAllocation) {
+    const sr = serverSession.session.emSet.roleAllocation as any;
+    effectiveRoleAllocation = {
+      BA: sr.BA?.value || sr.BA || 0,
+      Senior: sr.Senior?.value || sr.Senior || 0,
+      Junior: sr.Junior?.value || sr.Junior || 0,
+      PM: sr.PM?.value || sr.PM || 0,
+    };
+  }
+
   const input: EMCalculatorInput = {
     emSet: serverSession.session.emSet,
-    estimatedManDays: calcOverrides?.estimatedManDays ?? serverSession.session.emSet.estimatedManDays ?? 60,
-    primaryRole: calcOverrides?.primaryRole ?? serverSession.session.emSet.primaryRole ?? 'Senior',
-    userCount: calcOverrides?.userCount ?? 100,
+    roleAllocation: effectiveRoleAllocation,
+    userCount: calcOverrides?.userCount ?? (typeof serverSession.session.emSet.userCount?.value === 'number' ? serverSession.session.emSet.userCount.value : null) ?? 100,
     emDefinitions: emDefinitionsMap,
   };
 

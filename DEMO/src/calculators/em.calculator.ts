@@ -12,8 +12,12 @@ import { PriceBreakdown, CostLineItem, RiskAdjustment, MarginBreakdown } from '.
 
 export interface EMCalculatorInput {
   emSet: EffortMultiplierSet;
-  estimatedManDays: number;
-  primaryRole: 'Junior' | 'Senior' | 'PM' | 'BA';
+  roleAllocation: {
+    BA: number;
+    Senior: number;
+    Junior: number;
+    PM: number;
+  };
   userCount: number;
   emDefinitions: Map<EM_ID, { defaultValue: number }>;
 }
@@ -65,20 +69,20 @@ export function calculateWithEM(
   input: EMCalculatorInput,
   config: InternalConfig
 ): EMCalculatorResult {
-  const { emSet, estimatedManDays, primaryRole, userCount } = input;
+  const { emSet, roleAllocation, userCount } = input;
+
+  const estimatedManDays = roleAllocation.BA + roleAllocation.Senior + roleAllocation.Junior + roleAllocation.PM;
 
   // ── Layer 1: Base Cost ────────────────────────────────────────────────────
-  const rateMap = {
-    Junior: config.Rate_Dev_Junior,
-    Senior: config.Rate_Dev_Senior,
-    PM:     config.Rate_PM,
-    BA:     config.Rate_BA,
-  };
-  const dailyRate = rateMap[primaryRole];
+  const baseLaborCostRaw = 
+    (roleAllocation.Junior * config.Rate_Dev_Junior) +
+    (roleAllocation.Senior * config.Rate_Dev_Senior) +
+    (roleAllocation.PM * config.Rate_PM) +
+    (roleAllocation.BA * config.Rate_BA);
 
   // EM_B1: Deployment Location multiplier applied to labor
   const deploymentEM = getEMValue(emSet, 'EM_B1', input.emDefinitions);
-  const laborCost = estimatedManDays * dailyRate * deploymentEM;
+  const laborCost = baseLaborCostRaw * deploymentEM;
 
   // Server cost
   const userBuckets = Math.ceil(userCount / 1000);
@@ -119,7 +123,7 @@ export function calculateWithEM(
     {
       category: 'Labor',
       amount: laborCost,
-      explanation: `${estimatedManDays} man-days × ${formatVND(dailyRate)}/day${deploymentEM > 1 ? ` × ${deploymentEM} onsite multiplier` : ''}.`,
+      explanation: `${estimatedManDays} man-days (BA: ${roleAllocation.BA}, PM: ${roleAllocation.PM}, Senior: ${roleAllocation.Senior}, Junior: ${roleAllocation.Junior})${deploymentEM > 1 ? ` × ${deploymentEM} onsite multiplier` : ''}.`,
     },
     {
       category: 'Server & Infrastructure',

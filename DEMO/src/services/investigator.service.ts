@@ -13,6 +13,8 @@ import { safeJsonParse } from '../utils/safe-json';
 
 // ─── Session State ────────────────────────────────────────────────────────────
 
+import { loadModuleCatalog } from '../config/module-catalog.loader';
+
 export interface EMSessionState {
   sessionId: string;
   emSet: EffortMultiplierSet;
@@ -46,6 +48,35 @@ function countFilled(emSet: EffortMultiplierSet): number {
 
 // ─── InvestigatorService (COCOMO version) ─────────────────────────────────────
 
+export function syncRoleAllocationFromModules(emSet: EffortMultiplierSet) {
+  if (!emSet.matchedModules || emSet.matchedModules.length === 0) {
+    emSet.roleAllocation = undefined;
+    return;
+  }
+
+  const catalog = loadModuleCatalog();
+  let totalBaseManDays = 0;
+
+  for (const m of emSet.matchedModules) {
+    const catalogEntry = catalog.find(c => c.moduleId === m.module_id);
+    if (catalogEntry) {
+      totalBaseManDays += catalogEntry.baseManDays;
+    }
+  }
+
+  const pmDays = Math.ceil(totalBaseManDays * 0.10);
+  const baDays = Math.ceil(totalBaseManDays * 0.15);
+  const seniorDays = Math.ceil(totalBaseManDays * 0.50);
+  const juniorDays = Math.ceil(totalBaseManDays * 0.25);
+
+  emSet.roleAllocation = {
+    PM: { value: pmDays, evidence: 'Auto-calculated from Modules', reasoning: `Based on ${totalBaseManDays} total man-days` },
+    BA: { value: baDays, evidence: 'Auto-calculated from Modules', reasoning: `Based on ${totalBaseManDays} total man-days` },
+    Senior: { value: seniorDays, evidence: 'Auto-calculated from Modules', reasoning: `Based on ${totalBaseManDays} total man-days` },
+    Junior: { value: juniorDays, evidence: 'Auto-calculated from Modules', reasoning: `Based on ${totalBaseManDays} total man-days` }
+  };
+}
+
 export class InvestigatorService {
   private strategy = new InvestigatorStrategy();
 
@@ -65,6 +96,20 @@ export class InvestigatorService {
       .filter(m => m.value === null)
       .map(m => `  ${m.em_id} (${m.name}) — range: [${m.range[0]}, ${m.range[1]}]`);
 
+    // Load module catalog to inject into prompt
+    const moduleCatalog = loadModuleCatalog();
+    const catalogContext = `
+MODULE CATALOG:
+${moduleCatalog.map(m => `- [${m.moduleId}] ${m.moduleName} (Base ManDays: ${m.baseManDays}) | Keywords: ${m.keywords.join(', ')}`).join('\n')}
+`;
+
+    const scopingContext = `
+Project Scoping so far:
+- matchedModules: ${session.emSet.matchedModules?.map(m => m.module_id).join(', ') || '(none)'}
+- userCount: ${session.emSet.userCount?.value !== null && session.emSet.userCount?.value !== undefined ? session.emSet.userCount.value : '(none)'}
+- roleAllocation: ${session.emSet.roleAllocation && Object.values(session.emSet.roleAllocation).some(r => r && r.value !== null) ? JSON.stringify(session.emSet.roleAllocation) : '(none)'}
+`;
+
     const stateContext = `
 Current Effort Multiplier state:
 FILLED (${filledEMs.length}/12):
@@ -74,6 +119,7 @@ MISSING (${missingEMs.length}/12):
 ${missingEMs.join('\n') || '  (all filled!)'}
 
 Compound risk multiplier so far: ${session.emSet.compoundMultiplier.toFixed(3)}
+${scopingContext}
 `;
 
     // Group heuristic rules by emId to feed to LLM
@@ -89,7 +135,7 @@ Compound risk multiplier so far: ${session.emSet.compoundMultiplier.toFixed(3)}
     }
 
     const prompt = new PromptBuilder()
-      .withSystem(contract.systemPrompt)
+      .withSystem(contract.systemPrompt + '\n' + catalogContext)
       .withDeveloper(contract.developerPrompt + '\n\n' + heuristicText + stateContext)
       .withOutputFormat(contract.outputFormatPrompt)
       .withUserInput(`Transcript:\n${userMessage}`)
@@ -161,11 +207,21 @@ Compound risk multiplier so far: ${session.emSet.compoundMultiplier.toFixed(3)}
       }
     }
 
-    if (parsed.estimatedManDays) {
+    if (parsed.estimatedManDays !== undefined && parsed.estimatedManDays !== null) {
       session.emSet.estimatedManDays = parsed.estimatedManDays;
     }
-    if (parsed.primaryRole) {
+    if (parsed.primaryRole !== undefined && parsed.primaryRole !== null) {
       session.emSet.primaryRole = parsed.primaryRole;
+    }
+    if (parsed.matchedModules && parsed.matchedModules.length > 0) {
+      session.emSet.matchedModules = parsed.matchedModules;
+      // Auto-sync role allocation based on matched modules, overriding any LLM guesses
+      syncRoleAllocationFromModules(session.emSet);
+    }
+    // We completely skip LLM's parsed.roleAllocation since it's deterministic now.
+
+    if (parsed.userCount && parsed.userCount.value !== null) {
+      session.emSet.userCount = parsed.userCount;
     }
     if (parsed.suggestions && parsed.suggestions.length > 0) {
       session.emSet.suggestions = parsed.suggestions;

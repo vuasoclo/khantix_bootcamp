@@ -13,6 +13,24 @@ Use this exact schema:
       "reasoning": "string — explain WHY you chose this value REFERENCING the EM definition. For UPDATE, explain what changed from the previous value."
     }
   ],
+  "matchedModules": [
+    {
+      "module_id": "string — ID of the module mapped from the Module Catalog",
+      "reasoning": "string — explanation of why this module was matched from the requirements"
+    }
+  ],
+  "roleAllocation": {
+    "BA": { "value": "number or null", "evidence": "string or null", "reasoning": "string or null" },
+    "Senior": { "value": "number or null", "evidence": "string or null", "reasoning": "string or null" },
+    "Junior": { "value": "number or null", "evidence": "string or null", "reasoning": "string or null" },
+    "QA": { "value": "number or null", "evidence": "string or null", "reasoning": "string or null" },
+    "PM": { "value": "number or null", "evidence": "string or null", "reasoning": "string or null" }
+  },
+  "userCount": {
+    "value": "number or null",
+    "evidence": "string or null",
+    "reasoning": "string or null"
+  },
   "estimatedManDays": "number — your estimation of base man-days required for this scope, or null",
   "primaryRole": "Junior | Senior | PM | BA | null",
   "suggestions": [

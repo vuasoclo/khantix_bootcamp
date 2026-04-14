@@ -80,33 +80,6 @@
               <li>Đợi phân tích hoàn tất để hiển thị gợi ý...</li>
             </ul>
           </div>
-
-          <!-- Project Norms (New Centralized Override) -->
-          <div class="input-card" style="background: rgba(56, 139, 253, 0.05); border: 1px solid rgba(56, 139, 253, 0.2); border-radius: 8px; padding: 12px; display: flex; flex-direction: column; gap: 10px;">
-            <h4 style="margin: 0; color: var(--blue-accent); font-size: 13px;">⚙️ Dự án & Định mức</h4>
-            
-            <div style="display: flex; gap: 8px;">
-              <div style="flex: 1;">
-                <label style="display: block; font-size: 10px; color: var(--text-muted); margin-bottom: 4px; text-transform: uppercase;">Man-Days</label>
-                <input type="number" id="inp-mandays" placeholder="Auto (AI)" style="width: 100%; background: rgba(0,0,0,0.3); border: 1px solid rgba(255,255,255,0.1); color: white; padding: 6px; border-radius: 4px; font-size: 13px;" />
-              </div>
-              <div style="flex: 1;">
-                <label style="display: block; font-size: 10px; color: var(--text-muted); margin-bottom: 4px; text-transform: uppercase;">Primary Role</label>
-                <select id="inp-role" style="width: 100%; background: rgba(0,0,0,0.3); border: 1px solid rgba(255,255,255,0.1); color: white; padding: 6px; border-radius: 4px; font-size: 13px;">
-                  <option value="">Auto (AI)</option>
-                  <option value="Senior">Senior</option>
-                  <option value="Junior">Junior</option>
-                  <option value="PM">PM</option>
-                  <option value="BA">BA</option>
-                </select>
-              </div>
-            </div>
-
-            <div>
-              <label style="display: block; font-size: 10px; color: var(--text-muted); margin-bottom: 4px; text-transform: uppercase;">Số lượng User</label>
-              <input type="number" id="inp-usercount" value="100" style="width: 100%; background: rgba(0,0,0,0.3); border: 1px solid rgba(255,255,255,0.1); color: white; padding: 6px; border-radius: 4px; font-size: 13px;" />
-            </div>
-          </div>
           
           <!-- Generate Base Price On-demand -->
           <button id="btn-base-price" style="margin-top: 8px; padding: 12px; background: var(--risk-low); color: #000; border: none; font-weight: bold; font-size: 14px; border-radius: 4px; cursor: pointer; transition: all 0.2s; box-shadow: 0 4px 12px rgba(81, 207, 102, 0.2);">⚡ Tính Base Price Nhanh</button>
@@ -144,6 +117,61 @@
       </div>
 
       <div id="slot-cards">
+        <!-- Project Scoping Group (AI Matches) -->
+        <div class="slot-group-label" style="color: var(--blue-accent);">S — Project Scoping</div>
+        
+        <!-- Matched Modules -->
+        <div class="slot-card" id="slot-scope-modules" data-scope="matchedModules" data-status="empty">
+          <div class="slot-card-header"><span class="slot-icon">🧩</span><div class="slot-content"><div class="slot-name">Matched Modules</div><div class="slot-value" id="modules-value">—</div><div class="slot-confidence"></div></div><span class="slot-indicator"></span></div>
+          <div class="slot-expand-panel">
+            <div class="slot-reasoning-block"><div class="slot-detail-label">🧠 Recognized Modules</div><div class="slot-reasoning-text" id="modules-reasoning-text">—</div></div>
+            <div class="slot-adjust-block">
+              <div style="font-size: 11px; margin-bottom: 8px; color: var(--text-secondary)">Thêm/Sửa Modules (Cập nhật ở đây sẽ tính lại Role Allocation):</div>
+              <div id="modules-edit-list" style="display: flex; flex-direction: column; gap: 8px; margin-bottom: 8px;">
+                <!-- dynamic blocks here -->
+              </div>
+              <button id="btn-add-module" style="background: rgba(255,255,255,0.1); border: 1px dotted rgba(255,255,255,0.3); color: white; padding: 4px 8px; border-radius: 4px; font-size: 11px; cursor: pointer; margin-bottom: 12px; width: 100%;">+ Thêm Module mới</button>
+              <div class="slot-action-btns">
+                <button class="btn-confirm-em">✅ Đồng ý</button>
+                <button class="btn-adjust-em">🔄 Cập nhật</button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Role Allocation -->
+        <div class="slot-card" id="slot-scope-roles" data-scope="roleAllocation" data-status="empty">
+          <div class="slot-card-header"><span class="slot-icon">👥</span><div class="slot-content"><div class="slot-name">Role Allocation</div><div class="slot-value" id="roles-value">—</div><div class="slot-confidence"></div></div><span class="slot-indicator"></span></div>
+          <div class="slot-expand-panel">
+            <div class="slot-reasoning-block"><div class="slot-detail-label">🧠 Effort Distribution</div><div class="slot-reasoning-text" id="roles-reasoning-text">—</div></div>
+            <div class="slot-adjust-block">
+              <div style="font-size: 11px; margin-bottom: 8px;">Edit Man-Days:</div>
+              <div style="display: flex; gap: 4px; align-items: center; margin-bottom: 4px;">
+                <label style="width: 40px; font-size:10px;">Senior</label><input type="number" id="inp-role-senior" style="flex:1; background: rgba(0,0,0,0.3); border: 1px solid rgba(255,255,255,0.1); color: white; padding: 4px; border-radius: 4px;" value="0"/>
+                <label style="width: 40px; font-size:10px;">Junior</label><input type="number" id="inp-role-junior" style="flex:1; background: rgba(0,0,0,0.3); border: 1px solid rgba(255,255,255,0.1); color: white; padding: 4px; border-radius: 4px;" value="0"/>
+              </div>
+              <div style="display: flex; gap: 4px; align-items: center; margin-bottom: 8px;">
+                <label style="width: 40px; font-size:10px;">BA</label><input type="number" id="inp-role-ba" style="flex:1; background: rgba(0,0,0,0.3); border: 1px solid rgba(255,255,255,0.1); color: white; padding: 4px; border-radius: 4px;" value="0"/>
+                <label style="width: 40px; font-size:10px;">PM</label><input type="number" id="inp-role-pm" style="flex:1; background: rgba(0,0,0,0.3); border: 1px solid rgba(255,255,255,0.1); color: white; padding: 4px; border-radius: 4px;" value="0"/>
+              </div>
+              <div class="slot-action-btns"><button class="btn-confirm-em">✅ Đồng ý</button><button class="btn-adjust-em">🔄 Cập nhật</button></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- User Count -->
+        <div class="slot-card" id="slot-scope-users" data-scope="userCount" data-status="empty">
+          <div class="slot-card-header"><span class="slot-icon">🌐</span><div class="slot-content"><div class="slot-name">User Count</div><div class="slot-value" id="users-value">—</div><div class="slot-confidence" id="users-conf"></div></div><span class="slot-indicator"></span></div>
+          <div class="slot-expand-panel">
+            <div class="slot-evidence-block"><div class="slot-detail-label">💬 Evidence</div><div class="slot-evidence-text" id="users-evidence-text">—</div></div>
+            <div class="slot-reasoning-block"><div class="slot-detail-label">🧠 Reasoning</div><div class="slot-reasoning-text" id="users-reasoning-text">—</div></div>
+            <div class="slot-adjust-block">
+              <input type="number" id="inp-usercount" placeholder="Số lượng user..." style="width:100%; background: rgba(0,0,0,0.3); border: 1px solid rgba(255,255,255,0.1); color: white; padding: 6px; border-radius: 4px; margin-bottom: 8px;" />
+              <div class="slot-action-btns"><button class="btn-confirm-em">✅ Đồng ý</button><button class="btn-adjust-em">🔄 Cập nhật</button></div>
+            </div>
+          </div>
+        </div>
+
         <!-- Data Risk Group -->
         <div class="slot-group-label">D — Data Risk</div>
         <div class="slot-card" id="slot-EM_D1" data-em="EM_D1" data-status="empty">

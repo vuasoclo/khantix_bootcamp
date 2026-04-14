@@ -23,6 +23,12 @@ export type EvidenceSource =
   | 'ai_inference_from_context'
   | 'unknown_after_3_attempts';
 
+export interface AISlotEstimate {
+  value: number | null;
+  evidence: string | null;
+  reasoning: string | null;
+}
+
 // ─── State Reconciliation: EM Lifecycle ───────────────────────────────────────
 // EMPTY → AI_PENDING (AI filled, awaiting Pre-sales review)
 //       → CONFIRMED (Pre-sales approved or adjusted)
@@ -51,6 +57,9 @@ export interface EffortMultiplierSet {
   multipliers: EffortMultiplierEstimate[];
   compoundMultiplier: number;    // Product of all non-null EM values
   effectiveBufferPercent: string; // e.g. "+57.1%"
+  matchedModules?: { module_id: string; reasoning: string }[];
+  roleAllocation?: { [key: string]: AISlotEstimate };
+  userCount?: AISlotEstimate;
   estimatedManDays?: number | null;
   primaryRole?: 'Junior' | 'Senior' | 'PM' | 'BA' | null;
   suggestions?: string[];

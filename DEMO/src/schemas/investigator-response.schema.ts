@@ -17,6 +17,15 @@ export interface EMEstimateFromLLM {
 
 export interface InvestigatorResponse {
   effortMultipliers: EMEstimateFromLLM[];
+  matchedModules?: { module_id: string; reasoning: string }[];
+  roleAllocation?: {
+    BA?: { value: number | null; evidence: string | null; reasoning: string | null };
+    Senior?: { value: number | null; evidence: string | null; reasoning: string | null };
+    Junior?: { value: number | null; evidence: string | null; reasoning: string | null };
+    QA?: { value: number | null; evidence: string | null; reasoning: string | null };
+    PM?: { value: number | null; evidence: string | null; reasoning: string | null };
+  };
+  userCount?: { value: number | null; evidence: string | null; reasoning: string | null };
   estimatedManDays?: number | null;
   primaryRole?: 'Junior' | 'Senior' | 'PM' | 'BA' | null;
   suggestions: string[];

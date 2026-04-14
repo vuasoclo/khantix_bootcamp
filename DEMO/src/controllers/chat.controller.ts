@@ -2,6 +2,17 @@ import { Request, Response } from 'express';
 import { createLlmCaller } from '../llm/llm-adapter';
 import { sessionRepository } from '../repositories/session.repository';
 import { loadHeuristicMatrixV2 } from '../config/heuristic-v2.loader';
+import { syncRoleAllocationFromModules } from '../services/investigator.service';
+import { loadModuleCatalog } from '../config/module-catalog.loader';
+
+export const getModulesList = (req: Request, res: Response) => {
+  try {
+    const catalog = loadModuleCatalog();
+    return res.json(catalog);
+  } catch (err: any) {
+    return res.status(500).json({ error: 'Failed to load modules catalog' });
+  }
+};
 
 const { definitions: emDefinitionsMap, rules: emRules } = loadHeuristicMatrixV2();
 const emDefinitionsArr = Array.from(emDefinitionsMap.values());
@@ -45,6 +56,11 @@ export const analyzeTranscript = async (req: Request, res: Response) => {
       totalCount: 12,
       allSlotsFilled: result.done,
       turnCount,
+      estimatedManDays: result.session.emSet.estimatedManDays,
+      primaryRole: result.session.emSet.primaryRole,
+      matchedModules: result.session.emSet.matchedModules,
+      roleAllocation: result.session.emSet.roleAllocation,
+      userCount: result.session.emSet.userCount,
     });
   } catch (err: any) {
     console.error(`[Transcript] Error in session ${sessionId}:`, err.message);
@@ -98,6 +114,12 @@ EM DEFINITIONS (CRITICAL — Only assign if DIRECT EVIDENCE exists in the brief)
 - EM_C1: How URGENT? Need explicit deadline.
 - EM_C2: Enterprise SLA/compliance? Need explicit mention.
 - EM_C3: Payment terms? Need EXPLICIT payment discussion.
+
+PRIORITIZE PROJECT SCOPING (USERS, ROLES, MODULES):
+You MUST prioritize gathering requirements for the following 3 fields BEFORE focusing on risk EMs:
+1. \`userCount\`: How many people will use the system?
+2. \`matchedModules\`: Which functional areas apply?
+If these scoping parameters are missing or unclear in the brief, your 'suggestions' array MUST focus on asking the customer about these aspects first. Only move to Risk EMs once Project Scoping is filled.
 
 HEURISTIC RULES MATRIX (Use the Target Default Value if keywords match. You can adjust slightly within the [Min, Max] range if context is more/less extreme):
 ${heuristicText}
@@ -208,28 +230,65 @@ export const confirmEm = (req: Request, res: Response) => {
     return res.status(404).json({ error: `Session "${sessionId}" not found` });
   }
 
-  const em = serverSession.session.emSet.multipliers.find(m => m.em_id === em_id);
-  if (!em) {
-    return res.status(404).json({ error: `EM "${em_id}" not found` });
-  }
+  const normalizedEmId = em_id.toLowerCase().replace(/\s+/g, '');
 
-  if (action === 'confirm') {
-    em.status = 'confirmed';
-    em.confirmedBy = 'pre-sales';
-    console.log(`[ConfirmEM] ${sessionId} | ${em_id} CONFIRMED at ${em.value}`);
-  } else if (action === 'adjust') {
-    const adjustedValue = parseFloat(newValue);
-    if (isNaN(adjustedValue)) {
-      return res.status(400).json({ error: 'newValue must be a valid number' });
+  // Handle special scoping slots
+  if (normalizedEmId === 'usercount') {
+    if (action === 'adjust') {
+      const parsedValue = parseInt(newValue, 10);
+      if (!isNaN(parsedValue)) {
+        serverSession.session.emSet.userCount = { value: parsedValue, evidence: 'Manual adjustment', reasoning: reason || 'Pre-sales override' };
+      }
+    } else if (action === 'confirm') {
+       if (serverSession.session.emSet.userCount) {
+          // just acknowledge the confirmation, no state mutation required for now
+          console.log(`[ConfirmEM] ${sessionId} | userCount CONFIRMED at ${serverSession.session.emSet.userCount.value}`);
+       }
     }
-    em.previousValue = em.value;
-    em.value = Math.max(em.range[0], Math.min(em.range[1], adjustedValue));
-    em.status = 'confirmed';
-    em.confirmedBy = 'pre-sales';
-    em.confirmReason = reason || '';
-    console.log(`[ConfirmEM] ${sessionId} | ${em_id} ADJUSTED ${em.previousValue} → ${em.value} | Reason: ${reason}`);
+  } else if (normalizedEmId === 'roleallocation') {
+    if (action === 'adjust' && typeof newValue === 'object') {
+      serverSession.session.emSet.roleAllocation = {
+        BA: { value: newValue.BA, evidence: 'Manual adjustment', reasoning: reason },
+        Senior: { value: newValue.Senior, evidence: 'Manual adjustment', reasoning: reason },
+        Junior: { value: newValue.Junior, evidence: 'Manual adjustment', reasoning: reason },
+        PM: { value: newValue.PM, evidence: 'Manual adjustment', reasoning: reason }
+      };
+    } else if (action === 'confirm') {
+       console.log(`[ConfirmEM] ${sessionId} | roleAllocation CONFIRMED`);
+    }
+  } else if (normalizedEmId === 'matchedmodules') {
+    if (action === 'adjust' && Array.isArray(newValue)) {
+      serverSession.session.emSet.matchedModules = newValue;
+      syncRoleAllocationFromModules(serverSession.session.emSet);
+      console.log(`[ConfirmEM] ${sessionId} | matchedModules ADJUSTED to length: ${newValue.length}`);
+    } else if (action === 'confirm') {
+       console.log(`[ConfirmEM] ${sessionId} | matchedModules CONFIRMED`);
+    }
   } else {
-    return res.status(400).json({ error: 'action must be "confirm" or "adjust"' });
+    // Handle standard EMs
+    const em = serverSession.session.emSet.multipliers.find(m => m.em_id === em_id);
+    if (!em) {
+      return res.status(404).json({ error: `EM "${em_id}" not found` });
+    }
+
+    if (action === 'confirm') {
+      em.status = 'confirmed';
+      em.confirmedBy = 'pre-sales';
+      console.log(`[ConfirmEM] ${sessionId} | ${em_id} CONFIRMED at ${em.value}`);
+    } else if (action === 'adjust') {
+      const adjustedValue = parseFloat(newValue);
+      if (isNaN(adjustedValue)) {
+        return res.status(400).json({ error: 'newValue must be a valid number' });
+      }
+      em.previousValue = em.value;
+      em.value = Math.max(em.range[0], Math.min(em.range[1], adjustedValue));
+      em.status = 'confirmed';
+      em.confirmedBy = 'pre-sales';
+      em.confirmReason = reason || '';
+      console.log(`[ConfirmEM] ${sessionId} | ${em_id} ADJUSTED ${em.previousValue} → ${em.value} | Reason: ${reason}`);
+    } else {
+      return res.status(400).json({ error: 'action must be "confirm" or "adjust"' });
+    }
   }
 
   const riskIds = ['EM_D1', 'EM_D2', 'EM_D3', 'EM_I1', 'EM_I2', 'EM_T1', 'EM_T2'];
@@ -252,5 +311,8 @@ export const confirmEm = (req: Request, res: Response) => {
     compoundMultiplier: serverSession.session.emSet.compoundMultiplier,
     effectiveBufferPercent: serverSession.session.emSet.effectiveBufferPercent,
     filledCount: filled,
+    matchedModules: serverSession.session.emSet.matchedModules || [],
+    roleAllocation: serverSession.session.emSet.roleAllocation || {},
+    userCount: serverSession.session.emSet.userCount || { value: null, evidence: null, reasoning: null },
   });
 };

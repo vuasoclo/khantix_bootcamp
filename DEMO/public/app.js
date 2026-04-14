@@ -22,9 +22,45 @@ const state = {
   priceBreakdown: null,
   originalPrice: null,
   transcriptRound: 0,
+  moduleCatalog: []
 };
 
 // ─── Utilities ────────────────────────────────────────────────────────────────
+
+// Fetch module catalog
+fetch('/api/modules')
+  .then(res => res.json())
+  .then(data => {
+    state.moduleCatalog = data;
+  });
+
+function setupModuleEventListeners() {
+  document.getElementById('btn-add-module')?.addEventListener('click', () => {
+    if (!state.moduleCatalog || state.moduleCatalog.length === 0) return;
+    const html = `
+      <div class="module-edit-item" style="margin-bottom: 8px; padding-bottom: 8px; border-bottom: 1px dotted rgba(255,255,255,0.1); display: flex; gap: 4px; align-items: stretch; flex-direction: column;">
+        <select class="mod-select" style="width: 100%; background: rgba(0,0,0,0.3); border: 1px solid rgba(255,255,255,0.1); color: white; padding: 4px; border-radius: 4px; font-size: 11px;">
+          ${state.moduleCatalog.map(cat => `<option value="${cat.moduleId}">${cat.moduleId} - ${cat.moduleName}</option>`).join('')}
+        </select>
+        <div style="display: flex; gap: 4px; align-items: stretch;">
+          <input type="text" class="mod-reason" placeholder="Lý do thêm (tuỳ chọn)..." style="flex:1; background: rgba(0,0,0,0.3); border: 1px solid rgba(255,255,255,0.1); color: white; padding: 4px; border-radius: 4px; font-size: 11px;">
+          <button class="btn-remove-mod" style="background: rgba(255,0,0,0.2); border: none; color: red; cursor: pointer; border-radius: 4px; padding: 4px 8px; font-size: 11px;">X</button>
+        </div>
+      </div>
+    `;
+    document.getElementById('modules-edit-list').insertAdjacentHTML('beforeend', html);
+  });
+
+  document.getElementById('modules-edit-list')?.addEventListener('click', (e) => {
+    if (e.target.classList.contains('btn-remove-mod')) {
+      e.target.closest('.module-edit-item').remove();
+    }
+  });
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+  setupModuleEventListeners();
+});
 
 function generateSessionId() {
   const ts = new Date().toISOString().slice(0, 10).replace(/-/g, '');
@@ -149,6 +185,117 @@ function updateEMTracker(multipliers, filledCount, compoundMultiplier, effective
   }
 }
 
+// ─── UI: Project Scoping ──────────────────────────────────────────────────────
+
+function updateProjectScoping(data) {
+  // Modules
+  const modCard = document.getElementById('slot-scope-modules');
+  if (modCard && data.matchedModules) {
+    const valEl = document.getElementById('modules-value');
+    const rsnEl = document.getElementById('modules-reasoning-text');
+    if (data.matchedModules.length > 0) {
+      valEl.textContent = `${data.matchedModules.length} Modules`;
+      rsnEl.innerHTML = data.matchedModules.map(m => `<div style="margin-bottom:6px; padding-bottom:6px; border-bottom:1px solid rgba(255,255,255,0.05);"><strong>${esc(m.module_id)}</strong>: ${esc(m.reasoning)}</div>`).join('');
+      // Giữ lại 'confirmed' nếu trước đó đã có
+      if (modCard.dataset.status !== 'confirmed') modCard.dataset.status = 'ai_pending';
+    } else {
+      valEl.textContent = 'None';
+      rsnEl.textContent = '—';
+      modCard.dataset.status = 'empty';
+    }
+
+    const editList = document.getElementById('modules-edit-list');
+    if (editList && state.moduleCatalog) {
+      editList.innerHTML = (data.matchedModules || []).map((m, idx) => `
+        <div class="module-edit-item" style="margin-bottom: 8px; padding-bottom: 8px; border-bottom: 1px dotted rgba(255,255,255,0.1); display: flex; gap: 4px; align-items: center;">
+          <strong style="color: #5bc0de; width: 80px; font-size: 11px;">${esc(m.module_id)}</strong>
+          <input type="hidden" class="mod-select" value="${esc(m.module_id)}">
+          <input type="text" class="mod-reason" placeholder="Lý do..." value="${esc(m.reasoning || '')}" style="flex:1; background: rgba(0,0,0,0.3); border: 1px solid rgba(255,255,255,0.1); color: white; padding: 4px; border-radius: 4px; font-size: 11px;">
+          <button class="btn-remove-mod" style="background: rgba(255,0,0,0.2); border: none; color: red; cursor: pointer; border-radius: 4px; padding: 4px 8px; font-size: 11px;">X</button>
+        </div>
+      `).join('');
+    }
+  }
+
+  // Roles
+  const roleCard = document.getElementById('slot-scope-roles');
+  if (roleCard && data.roleAllocation) {
+    const rAlloc = data.roleAllocation;
+    const valEl = document.getElementById('roles-value');
+    const rsnEl = document.getElementById('roles-reasoning-text');
+    
+    let totalDays = 0;
+    const rolesHtml = [];
+    ['BA', 'PM', 'Senior', 'Junior'].forEach(r => {
+      const slot = rAlloc[r];
+      if (slot && slot.value) {
+        totalDays += slot.value;
+        rolesHtml.push(`<div style="margin-bottom:6px; padding-bottom:6px; border-bottom:1px solid rgba(255,255,255,0.05);"><strong>${r}</strong>: ${slot.value} days<br><span style="color:#aaa;font-size:10px;">${esc(slot.reasoning)}</span></div>`);
+      }
+      
+      const inp = document.getElementById(`inp-role-${r.toLowerCase()}`);
+      if (inp) inp.value = slot?.value || 0;
+    });
+
+    if (totalDays > 0) {
+      valEl.textContent = `${totalDays} MDs`;
+      rsnEl.innerHTML = rolesHtml.join('');
+      if (roleCard.dataset.status !== 'confirmed') roleCard.dataset.status = 'ai_pending';
+    } else {
+      valEl.textContent = '—';
+      rsnEl.textContent = '—';
+      roleCard.dataset.status = 'empty';
+    }
+  }
+
+  // Users
+  const userCard = document.getElementById('slot-scope-users');
+  if (userCard && data.userCount && data.userCount.value) {
+    document.getElementById('users-value').textContent = data.userCount.value;
+    document.getElementById('users-conf').textContent = `${CONFIDENCE_BADGE[data.userCount.confidence] || ''} ${data.userCount.confidence || ''}`;
+    document.getElementById('users-evidence-text').textContent = data.userCount.evidence || '—';
+    document.getElementById('users-reasoning-text').textContent = data.userCount.reasoning || '—';
+    const inp = document.getElementById('inp-usercount');
+    if (inp) inp.value = data.userCount.value;
+    if (userCard.dataset.status !== 'confirmed') userCard.dataset.status = 'ai_pending';
+  } else if (userCard) {
+    userCard.dataset.status = 'empty';
+    document.getElementById('users-value').textContent = '—';
+    document.getElementById('users-conf').textContent = '';
+    document.getElementById('users-evidence-text').textContent = '—';
+    document.getElementById('users-reasoning-text').textContent = '—';
+  }
+
+  checkScopingComplete();
+}
+
+function checkScopingComplete() {
+  const modulesCard = document.getElementById('slot-scope-modules');
+  const rolesCard = document.getElementById('slot-scope-roles');
+  const usersCard = document.getElementById('slot-scope-users');
+  
+  const m = modulesCard?.dataset.status;
+  const r = rolesCard?.dataset.status;
+  const u = usersCard?.dataset.status;
+
+  const isComplete = (m === 'ai_pending' || m === 'confirmed') &&
+                     (r === 'ai_pending' || r === 'confirmed') &&
+                     (u === 'ai_pending' || u === 'confirmed');
+
+  const btn = document.getElementById('btn-base-price');
+  if (btn) {
+    if (isComplete) {
+      btn.disabled = false;
+      btn.style.opacity = '1';
+      btn.textContent = '⚡ Tính Base Price Nhanh';
+    } else {
+      btn.disabled = true;
+      btn.style.opacity = '0.5';
+      btn.textContent = '🔒 Project Scoping chưa hoàn tất';
+    }
+  }
+}
+
 // ─── UI: Suggestions ──────────────────────────────────────────────────────────
 
 function updateSuggestions(suggestions) {
@@ -212,8 +359,19 @@ function showBaseReport(data) {
 
   // Narrative — show labor/server/license breakdown
   const narrativeEl = document.getElementById('narrative-list');
+  let roleBreakdown = '';
+  if (data.roleAllocation) {
+    const roles = Object.entries(data.roleAllocation)
+      .filter(([r, days]) => days > 0)
+      .map(([r, days]) => `${r}: ${days}d`)
+      .join(', ');
+    roleBreakdown = `(${data.estimatedManDays} ngày: ${roles})`;
+  } else {
+    roleBreakdown = `(${data.estimatedManDays} ngày)`;
+  }
+
   narrativeEl.innerHTML = `
-    <p class="narrative-para">Chi phí Nhân công: <strong>${formatVND(data.laborCost)}</strong> (${data.estimatedManDays} ngày × ${formatVND(data.dailyRate)})</p>
+    <p class="narrative-para">Chi phí Nhân công: <strong>${formatVND(data.laborCost)}</strong> <span style="font-size:12px; color:var(--text-secondary)">${roleBreakdown}</span></p>
     <p class="narrative-para">Chi phí Server: <strong>${formatVND(data.serverCost)}</strong></p>
     <p class="narrative-para">Chi phí License: <strong>${formatVND(data.licenseCost)}</strong></p>
     <p class="narrative-para" style="margin-top: 8px; color: var(--risk-medium);">Compound Risk Multiplier: <strong>×${data.compoundMultiplier.toFixed(3)}</strong> (${data.effectiveBufferPercent})</p>
@@ -347,6 +505,7 @@ async function submitProfile() {
       1.0,
       '+0.0%'
     );
+    updateProjectScoping(data);
     updateSuggestions(data.suggestions);
 
     updateStatus(`✅ Hồ sơ hợp lệ. Pre-filled ${data.filledCount}/12 EMs. ManDays: ${data.estimatedManDays || 'N/A'}`, 'success');
@@ -411,6 +570,7 @@ async function submitTranscript() {
       data.compoundMultiplier || 1.0,
       data.effectiveBufferPercent || '+0.0%'
     );
+    updateProjectScoping(data);
     updateSuggestions(data.suggestions);
 
     updateStatus(`Hoàn tất hiệp ${state.transcriptRound}: ${data.filledCount}/12 EMs đã điền`, 'success');
@@ -451,11 +611,19 @@ async function confirmEM(emId, action, newValue = null, reason = '') {
         data.compoundMultiplier || 1.0,
         data.effectiveBufferPercent || '+0.0%'
       );
+      updateProjectScoping(data);
     }
 
     // Collapse card after confirm
-    const card = document.getElementById(`slot-${emId}`);
-    if (card) card.classList.remove('expanded');
+    const cardId = `slot-${emId}`;
+    const cardScopeId = `slot-scope-${emId.replace('Allocation', 's').replace('matched', '').replace('userCount', 'users').replace('role', 'roles').toLowerCase()}`;
+    const card = document.getElementById(cardId) || document.getElementById(cardScopeId) || document.querySelector(`[data-scope="${emId}"]`);
+    if (card) {
+       card.classList.remove('expanded');
+       card.dataset.status = 'confirmed';
+    }
+
+    checkScopingComplete();
 
     updateStatus(`${emId} đã ${action === 'confirm' ? 'xác nhận' : 'điều chỉnh'} thành công.`, 'success');
   } catch (err) {
@@ -501,7 +669,7 @@ function setupCardInteractions() {
     if (!e.target.classList.contains('btn-confirm-em')) return;
     const card = e.target.closest('.slot-card');
     if (!card) return;
-    const emId = card.dataset.em;
+    const emId = card.dataset.em || card.dataset.scope;
     confirmEM(emId, 'confirm');
   });
 
@@ -510,11 +678,45 @@ function setupCardInteractions() {
     if (!e.target.classList.contains('btn-adjust-em')) return;
     const card = e.target.closest('.slot-card');
     if (!card) return;
-    const emId = card.dataset.em;
-    const slider = card.querySelector('.slot-slider');
-    const reasonInput = card.querySelector('.slot-reason-input');
-    const newValue = slider ? parseFloat(slider.value) : null;
-    const reason = reasonInput ? reasonInput.value.trim() : '';
+    const emId = card.dataset.em || card.dataset.scope;
+    
+    let newValue = null;
+    let reason = '';
+    
+    if (emId === 'userCount') {
+      const inp = card.querySelector('#inp-usercount');
+      newValue = inp ? parseInt(inp.value, 10) : null;
+      reason = 'Pre-sales adjustment for internal norms';
+    } else if (emId === 'roleAllocation') {
+      const sr = card.querySelector('#inp-role-senior');
+      const jr = card.querySelector('#inp-role-junior');
+      const ba = card.querySelector('#inp-role-ba');
+      const pm = card.querySelector('#inp-role-pm');
+      newValue = {
+        Senior: sr ? parseInt(sr.value,10) : 0,
+        Junior: jr ? parseInt(jr.value,10) : 0,
+        BA: ba ? parseInt(ba.value,10) : 0,
+        PM: pm ? parseInt(pm.value,10) : 0
+      };
+      reason = 'Pre-sales manual distribution';
+    } else if (emId === 'matchedModules') {
+      const items = Array.from(card.querySelectorAll('.module-edit-item'));
+      newValue = items.map(el => {
+        const sel = el.querySelector('.mod-select');
+        const inp = el.querySelector('.mod-reason');
+        return {
+          module_id: sel ? sel.value : '',
+          reasoning: inp ? inp.value : ''
+        };
+      }).filter(m => m.module_id);
+      reason = 'Pre-sales manual modules update';
+    } else {
+      const slider = card.querySelector('.slot-slider');
+      const reasonInput = card.querySelector('.slot-reason-input');
+      newValue = slider ? parseFloat(slider.value) : null;
+      reason = reasonInput ? reasonInput.value.trim() : '';
+    }
+    
     confirmEM(emId, 'adjust', newValue, reason);
   });
 }
@@ -525,13 +727,9 @@ async function generateBaseReport() {
   const btn = document.getElementById('btn-base-price');
   
   // Collect overrides
-  const md = document.getElementById('inp-mandays').value;
-  const role = document.getElementById('inp-role').value;
   const users = document.getElementById('inp-usercount').value;
 
   let query = `/api/base-report?sessionId=${encodeURIComponent(state.sessionId)}`;
-  if (md) query += `&manDays=${md}`;
-  if (role) query += `&role=${role}`;
   if (users) query += `&userCount=${users}`;
 
   btn.disabled = true;
