@@ -17,6 +17,33 @@ export const getModulesList = (req: Request, res: Response) => {
 const { definitions: emDefinitionsMap, rules: emRules } = loadHeuristicMatrixV2();
 const emDefinitionsArr = Array.from(emDefinitionsMap.values());
 
+const CARRY_OVER_TEXT_PATTERNS: RegExp[] = [
+  /carried\s+over\s+from\s+(?:the\s+)?(?:previous|prior)\s+state/i,
+  /already\s+established\s+in\s+(?:the\s+)?project\s+scope/i,
+];
+
+function isCarryOverPlaceholder(text: string | null | undefined): boolean {
+  if (!text || !text.trim()) return false;
+  return CARRY_OVER_TEXT_PATTERNS.some((p) => p.test(text));
+}
+
+function sanitizeInfraSlot<T extends { evidence?: string | null; reasoning?: string | null }>(
+  incoming: T | undefined,
+  existing?: T
+): T | undefined {
+  if (!incoming) return incoming;
+  const next = { ...incoming };
+
+  if (isCarryOverPlaceholder(next.evidence)) {
+    next.evidence = existing?.evidence ?? null;
+  }
+  if (isCarryOverPlaceholder(next.reasoning)) {
+    next.reasoning = existing?.reasoning ?? null;
+  }
+
+  return next;
+}
+
 let callLlm: ReturnType<typeof createLlmCaller>;
 try {
   callLlm = createLlmCaller();
@@ -61,6 +88,9 @@ export const analyzeTranscript = async (req: Request, res: Response) => {
       matchedModules: result.session.emSet.matchedModules,
       roleAllocation: result.session.emSet.roleAllocation,
       userCount: result.session.emSet.userCount,
+      concurrent_users: result.session.emSet.concurrent_users,
+      expected_storage_gb: result.session.emSet.expected_storage_gb,
+      requires_high_availability: result.session.emSet.requires_high_availability,
     });
   } catch (err: any) {
     console.error(`[Transcript] Error in session ${sessionId}:`, err.message);
@@ -141,6 +171,10 @@ Return JSON only:
       "reasoning": "why this value, referencing EM definition"
     }
   ],
+  "userCount": { "value": "number or null", "evidence": "string or null", "reasoning": "string or null" },
+  "concurrent_users": { "value": "number or null", "confidence": "high|medium|low|null", "is_extracted": true|false, "evidence": "string or null", "reasoning": "string or null" },
+  "expected_storage_gb": { "value": "number or null", "confidence": "high|medium|low|null", "is_extracted": true|false, "evidence": "string or null", "reasoning": "string or null" },
+  "requires_high_availability": { "value": "boolean or null", "confidence": "high|medium|low|null", "is_extracted": true|false, "evidence": "string or null", "reasoning": "string or null" },
   "estimatedManDays": "number or null",
   "primaryRole": "Junior | Senior | PM | BA | null",
   "suggestions": ["string — what to discuss first in the meeting"]
@@ -186,6 +220,27 @@ Return JSON only:
     if (parsed.estimatedManDays) {
       serverSession.session.emSet.estimatedManDays = parsed.estimatedManDays;
     }
+    if (parsed.userCount) {
+      serverSession.session.emSet.userCount = parsed.userCount;
+    }
+    if (parsed.concurrent_users) {
+      serverSession.session.emSet.concurrent_users = sanitizeInfraSlot(
+        parsed.concurrent_users,
+        serverSession.session.emSet.concurrent_users
+      );
+    }
+    if (parsed.expected_storage_gb) {
+      serverSession.session.emSet.expected_storage_gb = sanitizeInfraSlot(
+        parsed.expected_storage_gb,
+        serverSession.session.emSet.expected_storage_gb
+      );
+    }
+    if (parsed.requires_high_availability) {
+      serverSession.session.emSet.requires_high_availability = sanitizeInfraSlot(
+        parsed.requires_high_availability,
+        serverSession.session.emSet.requires_high_availability
+      );
+    }
     if (parsed.primaryRole) {
       serverSession.session.emSet.primaryRole = parsed.primaryRole;
     }
@@ -212,6 +267,12 @@ Return JSON only:
       totalCount: 12,
       estimatedManDays: serverSession.session.emSet.estimatedManDays,
       primaryRole: serverSession.session.emSet.primaryRole,
+      matchedModules: serverSession.session.emSet.matchedModules,
+      roleAllocation: serverSession.session.emSet.roleAllocation,
+      userCount: serverSession.session.emSet.userCount,
+      concurrent_users: serverSession.session.emSet.concurrent_users,
+      expected_storage_gb: serverSession.session.emSet.expected_storage_gb,
+      requires_high_availability: serverSession.session.emSet.requires_high_availability,
     });
   } catch (err: any) {
     console.error(`[Profile] Error:`, err.message);
@@ -264,6 +325,52 @@ export const confirmEm = (req: Request, res: Response) => {
     } else if (action === 'confirm') {
        console.log(`[ConfirmEM] ${sessionId} | matchedModules CONFIRMED`);
     }
+  } else if (normalizedEmId === 'concurrent_users') {
+    if (action === 'adjust') {
+      const parsedValue = parseInt(newValue, 10);
+      if (!isNaN(parsedValue)) {
+        serverSession.session.emSet.concurrent_users = {
+          value: parsedValue,
+          confidence: 'high',
+          is_extracted: true,
+          evidence: 'Manual adjustment',
+          reasoning: reason || 'Pre-sales override'
+        };
+        console.log(`[ConfirmEM] ${sessionId} | concurrent_users ADJUSTED to ${parsedValue}`);
+      }
+    } else if (action === 'confirm') {
+      console.log(`[ConfirmEM] ${sessionId} | concurrent_users CONFIRMED`);
+    }
+  } else if (normalizedEmId === 'expected_storage_gb') {
+    if (action === 'adjust') {
+      const parsedValue = parseFloat(newValue);
+      if (!isNaN(parsedValue)) {
+        serverSession.session.emSet.expected_storage_gb = {
+          value: parsedValue,
+          confidence: 'high',
+          is_extracted: true,
+          evidence: 'Manual adjustment',
+          reasoning: reason || 'Pre-sales override'
+        };
+        console.log(`[ConfirmEM] ${sessionId} | expected_storage_gb ADJUSTED to ${parsedValue}`);
+      }
+    } else if (action === 'confirm') {
+      console.log(`[ConfirmEM] ${sessionId} | expected_storage_gb CONFIRMED`);
+    }
+  } else if (normalizedEmId === 'requires_high_availability') {
+    if (action === 'adjust') {
+      const parsedValue = newValue === true || newValue === 'true';
+      serverSession.session.emSet.requires_high_availability = {
+        value: parsedValue,
+        confidence: 'high',
+        is_extracted: true,
+        evidence: 'Manual adjustment',
+        reasoning: reason || 'Pre-sales override'
+      };
+      console.log(`[ConfirmEM] ${sessionId} | requires_high_availability ADJUSTED to ${parsedValue}`);
+    } else if (action === 'confirm') {
+      console.log(`[ConfirmEM] ${sessionId} | requires_high_availability CONFIRMED`);
+    }
   } else {
     // Handle standard EMs
     const em = serverSession.session.emSet.multipliers.find(m => m.em_id === em_id);
@@ -314,5 +421,8 @@ export const confirmEm = (req: Request, res: Response) => {
     matchedModules: serverSession.session.emSet.matchedModules || [],
     roleAllocation: serverSession.session.emSet.roleAllocation || {},
     userCount: serverSession.session.emSet.userCount || { value: null, evidence: null, reasoning: null },
+    concurrent_users: serverSession.session.emSet.concurrent_users || { value: null, evidence: null, reasoning: null },
+    expected_storage_gb: serverSession.session.emSet.expected_storage_gb || { value: null, evidence: null, reasoning: null },
+    requires_high_availability: serverSession.session.emSet.requires_high_availability || { value: null, evidence: null, reasoning: null },
   });
 };

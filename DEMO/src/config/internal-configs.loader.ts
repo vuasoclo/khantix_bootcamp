@@ -17,9 +17,17 @@ export function loadInternalConfigs(csvPath?: string): InternalConfig {
 
   const map: Record<string, number> = {};
   for (const line of lines) {
-    const [, paramName, value] = line.split(',');
+    const regex = /(".*?"|[^",\s]+)(?=\s*,|\s*$)/g;
+    const fields: string[] = [];
+    let match;
+    while ((match = regex.exec(line)) !== null) {
+      fields.push(match[0].replace(/^"|"$/g, '').trim());
+    }
+
+    const paramName = fields[1];
+    const value = fields[2];
     if (paramName && value) {
-      map[paramName.trim()] = parseFloat(value.trim());
+      map[paramName] = parseFloat(value);
     }
   }
 
@@ -34,8 +42,11 @@ export function loadInternalConfigs(csvPath?: string): InternalConfig {
     Location_Onsite_Multiplier:    map['Location_Onsite_Multiplier'],
     Comm_Partner_Max:              map['Comm_Partner_Max'],
     Discount_Full_Payment:         map['Discount_Full_Payment'],
-    Server_Base_Cost_Per_1K_Users: map['Server_Base_Cost_Per_1K_Users'],
-    SMS_OTP_Rate:                  map['SMS_OTP_Rate'],
+    Server_Base_Infra_Cost:        map['Server_Base_Infra_Cost'] ?? 800000,
+    Server_Cost_Per_100_Users:     map['Server_Cost_Per_100_Users'] ??
+                    ((map['Server_Base_Cost_Per_1K_Users'] ?? 5000000) / 10),
+    Storage_Cost_Per_GB:           map['Storage_Cost_Per_GB'] ?? 550,
+    SMS_OTP_Rate:                  map['SMS_OTP_Rate'] ?? 800,
     Risk_Data_Cleansing_Default:   map['Risk_Data_Cleansing_Default'],
     Risk_Integration_Default:      map['Risk_Integration_Default'],
     Risk_Tech_Literacy_Default:    map['Risk_Tech_Literacy_Default'],

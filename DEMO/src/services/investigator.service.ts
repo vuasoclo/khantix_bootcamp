@@ -46,6 +46,33 @@ function countFilled(emSet: EffortMultiplierSet): number {
   return emSet.multipliers.filter(m => m.value !== null).length;
 }
 
+const CARRY_OVER_TEXT_PATTERNS: RegExp[] = [
+  /carried\s+over\s+from\s+(?:the\s+)?(?:previous|prior)\s+state/i,
+  /already\s+established\s+in\s+(?:the\s+)?project\s+scope/i,
+];
+
+function isCarryOverPlaceholder(text: string | null | undefined): boolean {
+  if (!text || !text.trim()) return false;
+  return CARRY_OVER_TEXT_PATTERNS.some((p) => p.test(text));
+}
+
+function sanitizeInfraSlot<T extends { evidence?: string | null; reasoning?: string | null }>(
+  incoming: T | undefined,
+  existing?: T
+): T | undefined {
+  if (!incoming) return incoming;
+  const next = { ...incoming };
+
+  if (isCarryOverPlaceholder(next.evidence)) {
+    next.evidence = existing?.evidence ?? null;
+  }
+  if (isCarryOverPlaceholder(next.reasoning)) {
+    next.reasoning = existing?.reasoning ?? null;
+  }
+
+  return next;
+}
+
 // ─── InvestigatorService (COCOMO version) ─────────────────────────────────────
 
 export function syncRoleAllocationFromModules(emSet: EffortMultiplierSet) {
@@ -103,10 +130,13 @@ MODULE CATALOG:
 ${moduleCatalog.map(m => `- [${m.moduleId}] ${m.moduleName} (Base ManDays: ${m.baseManDays}) | Keywords: ${m.keywords.join(', ')}`).join('\n')}
 `;
 
-    const scopingContext = `
+const scopingContext = `
 Project Scoping so far:
 - matchedModules: ${session.emSet.matchedModules?.map(m => m.module_id).join(', ') || '(none)'}
 - userCount: ${session.emSet.userCount?.value !== null && session.emSet.userCount?.value !== undefined ? session.emSet.userCount.value : '(none)'}
+- concurrent_users: ${session.emSet.concurrent_users?.value !== null && session.emSet.concurrent_users?.value !== undefined ? session.emSet.concurrent_users.value : '(none)'}
+- expected_storage_gb: ${session.emSet.expected_storage_gb?.value !== null && session.emSet.expected_storage_gb?.value !== undefined ? session.emSet.expected_storage_gb.value : '(none)'}
+- requires_high_availability: ${session.emSet.requires_high_availability?.value !== null && session.emSet.requires_high_availability?.value !== undefined ? session.emSet.requires_high_availability.value : '(none)'}
 - roleAllocation: ${session.emSet.roleAllocation && Object.values(session.emSet.roleAllocation).some(r => r && r.value !== null) ? JSON.stringify(session.emSet.roleAllocation) : '(none)'}
 `;
 
@@ -222,6 +252,24 @@ ${scopingContext}
 
     if (parsed.userCount && parsed.userCount.value !== null) {
       session.emSet.userCount = parsed.userCount;
+    }
+    if (parsed.concurrent_users?.value !== undefined) {
+      session.emSet.concurrent_users = sanitizeInfraSlot(
+        parsed.concurrent_users,
+        session.emSet.concurrent_users
+      );
+    }
+    if (parsed.expected_storage_gb?.value !== undefined) {
+      session.emSet.expected_storage_gb = sanitizeInfraSlot(
+        parsed.expected_storage_gb,
+        session.emSet.expected_storage_gb
+      );
+    }
+    if (parsed.requires_high_availability?.value !== undefined) {
+      session.emSet.requires_high_availability = sanitizeInfraSlot(
+        parsed.requires_high_availability,
+        session.emSet.requires_high_availability
+      );
     }
     if (parsed.suggestions && parsed.suggestions.length > 0) {
       session.emSet.suggestions = parsed.suggestions;

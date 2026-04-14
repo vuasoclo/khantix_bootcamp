@@ -9,6 +9,8 @@ export interface ModuleCatalogEntry {
   isCoreCompetency: boolean;
   customizationMarkup: number;
   keywords: string[];
+  licenseCostBase: number;
+  storageQuotaGBPerUser: number;
 }
 
 export function loadModuleCatalog(csvPath?: string): ModuleCatalogEntry[] {
@@ -43,6 +45,9 @@ export function loadModuleCatalog(csvPath?: string): ModuleCatalogEntry[] {
       const keywordsStr = fields[6] || '';
       const keywords = keywordsStr.split(',').map(k => k.trim()).filter(Boolean);
 
+      const licenseCostBase = parseFloat(fields[7]?.trim() || '0');
+      const storageQuotaGBPerUser = parseFloat(fields[8]?.trim() || '0.5');
+
       return {
         moduleId,
         category,
@@ -51,6 +56,8 @@ export function loadModuleCatalog(csvPath?: string): ModuleCatalogEntry[] {
         isCoreCompetency,
         customizationMarkup,
         keywords,
+        licenseCostBase,
+        storageQuotaGBPerUser,
       } as ModuleCatalogEntry;
     })
     .filter((r): r is ModuleCatalogEntry => r !== null);

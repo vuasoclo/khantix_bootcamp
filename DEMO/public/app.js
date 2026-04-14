@@ -87,6 +87,21 @@ function esc(str) {
     .replace(/>/g, '&gt;');
 }
 
+function isCarryOverPlaceholderText(text) {
+  if (!text || !String(text).trim()) return false;
+  const s = String(text);
+  return /carried\s+over\s+from\s+(the\s+)?(previous|prior)\s+state/i.test(s) ||
+         /already\s+established\s+in\s+(the\s+)?project\s+scope/i.test(s);
+}
+
+function displayEvidenceText(text) {
+  return isCarryOverPlaceholderText(text) ? '—' : (text || '—');
+}
+
+function displayReasoningText(text) {
+  return isCarryOverPlaceholderText(text) ? '—' : (text || '—');
+}
+
 // ─── API Helpers ──────────────────────────────────────────────────────────────
 
 async function apiGet(path) {
@@ -257,6 +272,8 @@ function updateProjectScoping(data) {
     document.getElementById('users-reasoning-text').textContent = data.userCount.reasoning || '—';
     const inp = document.getElementById('inp-usercount');
     if (inp) inp.value = data.userCount.value;
+    
+    document.getElementById('inp-concurrent-users').placeholder = `Dự kiến: ${Math.ceil(data.userCount.value * 0.1)}`;
     if (userCard.dataset.status !== 'confirmed') userCard.dataset.status = 'ai_pending';
   } else if (userCard) {
     userCard.dataset.status = 'empty';
@@ -264,6 +281,49 @@ function updateProjectScoping(data) {
     document.getElementById('users-conf').textContent = '';
     document.getElementById('users-evidence-text').textContent = '—';
     document.getElementById('users-reasoning-text').textContent = '—';
+  }
+
+  // ==== INFRASTRUCTURE VARIABLES ====
+  const ccuCard = document.getElementById('slot-infra-concurrent');
+  if (ccuCard && data.concurrent_users && data.concurrent_users.value !== null && data.concurrent_users.value !== undefined) {
+    document.getElementById('concurrent_users-value').textContent = data.concurrent_users.value;
+    document.getElementById('concurrent_users-conf').textContent = `${CONFIDENCE_BADGE[data.concurrent_users.confidence] || ''} ${data.concurrent_users.confidence || ''}`;
+    document.getElementById('concurrent_users-evidence-text').textContent = displayEvidenceText(data.concurrent_users.evidence);
+    document.getElementById('concurrent_users-reasoning-text').textContent = displayReasoningText(data.concurrent_users.reasoning);
+    const inp = document.getElementById('inp-concurrent-users');
+    if (inp) inp.value = data.concurrent_users.value;
+    if (ccuCard.dataset.status !== 'confirmed') ccuCard.dataset.status = 'ai_pending';
+  } else if (ccuCard) {
+    document.getElementById('concurrent_users-value').textContent = '—';
+    ccuCard.dataset.status = 'empty';
+  }
+
+  const storageCard = document.getElementById('slot-infra-storage');
+  if (storageCard && data.expected_storage_gb && data.expected_storage_gb.value !== null && data.expected_storage_gb.value !== undefined) {
+    document.getElementById('expected_storage_gb-value').textContent = `${data.expected_storage_gb.value} GB`;
+    document.getElementById('expected_storage_gb-conf').textContent = `${CONFIDENCE_BADGE[data.expected_storage_gb.confidence] || ''} ${data.expected_storage_gb.confidence || ''}`;
+    document.getElementById('expected_storage_gb-evidence-text').textContent = displayEvidenceText(data.expected_storage_gb.evidence);
+    document.getElementById('expected_storage_gb-reasoning-text').textContent = displayReasoningText(data.expected_storage_gb.reasoning);
+    const inp = document.getElementById('inp-storage-gb');
+    if (inp) inp.value = data.expected_storage_gb.value;
+    if (storageCard.dataset.status !== 'confirmed') storageCard.dataset.status = 'ai_pending';
+  } else if (storageCard) {
+    document.getElementById('expected_storage_gb-value').textContent = '—';
+    storageCard.dataset.status = 'empty';
+  }
+
+  const haCard = document.getElementById('slot-infra-ha');
+  if (haCard && data.requires_high_availability && data.requires_high_availability.value !== undefined) {
+    document.getElementById('requires_high_availability-value').textContent = data.requires_high_availability.value ? 'Bật (x1.5 Cost)' : 'Tắt';
+    document.getElementById('requires_high_availability-conf').textContent = `${CONFIDENCE_BADGE[data.requires_high_availability.confidence] || ''} ${data.requires_high_availability.confidence || ''}`;
+    document.getElementById('requires_high_availability-evidence-text').textContent = displayEvidenceText(data.requires_high_availability.evidence);
+    document.getElementById('requires_high_availability-reasoning-text').textContent = displayReasoningText(data.requires_high_availability.reasoning);
+    const chk = document.getElementById('chk-high-availability');
+    if (chk) chk.checked = data.requires_high_availability.value;
+    if (haCard.dataset.status !== 'confirmed') haCard.dataset.status = 'ai_pending';
+  } else if (haCard) {
+    document.getElementById('requires_high_availability-value').textContent = '—';
+    haCard.dataset.status = 'empty';
   }
 
   checkScopingComplete();
@@ -376,6 +436,26 @@ function showBaseReport(data) {
     <p class="narrative-para">Chi phí License: <strong>${formatVND(data.licenseCost)}</strong></p>
     <p class="narrative-para" style="margin-top: 8px; color: var(--risk-medium);">Compound Risk Multiplier: <strong>×${data.compoundMultiplier.toFixed(3)}</strong> (${data.effectiveBufferPercent})</p>
   `;
+
+  const formatComp = (comp) => {
+    const value = typeof comp.value === 'number' && comp.value > 10 ? formatVND(comp.value) : esc(String(comp.value));
+    return `<div class="cost-sub" style="border-left: 2px solid var(--border-card); padding-left: 8px; margin-top: 4px;"><strong>${esc(comp.name)}</strong>: ${value}<br><span style="color:#aaa">Lý do: ${esc(comp.reason || '—')}</span><br><span style="color:#5bc0de">Trích dẫn: ${esc(comp.citation || 'Config/fallback nội bộ')}</span></div>`;
+  };
+
+  const infraDetail = (data.infrastructureBreakdown || []).map(formatComp).join('');
+  const licenseDetail = (data.licenseBreakdown || []).map(formatComp).join('');
+  if (infraDetail || licenseDetail) {
+    narrativeEl.innerHTML += `
+      <div class="narrative-para" style="margin-top:10px;">
+        <strong>Giải trình cấu phần Server:</strong>
+        ${infraDetail || '<div class="cost-sub">—</div>'}
+      </div>
+      <div class="narrative-para" style="margin-top:10px;">
+        <strong>Giải trình cấu phần License:</strong>
+        ${licenseDetail || '<div class="cost-sub">—</div>'}
+      </div>
+    `;
+  }
 
   // Cost items — filled EMs with REASONING HISTORY
   const costEl = document.getElementById('cost-items');
@@ -710,6 +790,20 @@ function setupCardInteractions() {
         };
       }).filter(m => m.module_id);
       reason = 'Pre-sales manual modules update';
+    } else if (emId === 'concurrent_users') {
+      const inp = card.querySelector('#inp-concurrent-users');
+      newValue = inp ? parseInt(inp.value, 10) : null;
+      reason = 'Pre-sales adjustment for infrastructure sizing';
+    } else if (emId === 'expected_storage_gb') {
+      const sel = card.querySelector('#sel-storage-preset');
+      const inp = card.querySelector('#inp-storage-gb');
+      if (sel && sel.value) inp.value = sel.value;
+      newValue = inp ? parseFloat(inp.value) : null;
+      reason = 'Pre-sales storage override';
+    } else if (emId === 'requires_high_availability') {
+      const chk = card.querySelector('#chk-high-availability');
+      newValue = chk ? chk.checked : false;
+      reason = 'Pre-sales infrastructure availability requirement';
     } else {
       const slider = card.querySelector('.slot-slider');
       const reasonInput = card.querySelector('.slot-reason-input');
@@ -728,9 +822,15 @@ async function generateBaseReport() {
   
   // Collect overrides
   const users = document.getElementById('inp-usercount').value;
+  const concurrentUsers = document.getElementById('inp-concurrent-users')?.value;
+  const storageGb = document.getElementById('inp-storage-gb')?.value;
+  const hasHA = document.getElementById('chk-high-availability')?.checked;
 
   let query = `/api/base-report?sessionId=${encodeURIComponent(state.sessionId)}`;
   if (users) query += `&userCount=${users}`;
+  if (concurrentUsers) query += `&concurrent_users=${encodeURIComponent(concurrentUsers)}`;
+  if (storageGb) query += `&expected_storage_gb=${encodeURIComponent(storageGb)}`;
+  if (hasHA !== undefined) query += `&requires_high_availability=${encodeURIComponent(String(hasHA))}`;
 
   btn.disabled = true;
   btn.textContent = '⏳ Đang tính toán...';

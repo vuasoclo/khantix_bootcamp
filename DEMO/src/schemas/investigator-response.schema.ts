@@ -26,6 +26,27 @@ export interface InvestigatorResponse {
     PM?: { value: number | null; evidence: string | null; reasoning: string | null };
   };
   userCount?: { value: number | null; evidence: string | null; reasoning: string | null };
+  concurrent_users?: {
+    value: number | null;
+    confidence: 'low' | 'medium' | 'high' | null;
+    is_extracted: boolean;
+    evidence: string | null;
+    reasoning: string | null;
+  };
+  expected_storage_gb?: {
+    value: number | null;
+    confidence: 'low' | 'medium' | 'high' | null;
+    is_extracted: boolean;
+    evidence: string | null;
+    reasoning: string | null;
+  };
+  requires_high_availability?: {
+    value: boolean | null;
+    confidence: 'low' | 'medium' | 'high' | null;
+    is_extracted: boolean;
+    evidence: string | null;
+    reasoning: string | null;
+  };
   estimatedManDays?: number | null;
   primaryRole?: 'Junior' | 'Senior' | 'PM' | 'BA' | null;
   suggestions: string[];

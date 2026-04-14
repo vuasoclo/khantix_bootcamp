@@ -18,9 +18,11 @@ export interface InternalConfig {
   Comm_Partner_Max: number;        // COMM_001 — 0.105
   Discount_Full_Payment: number;   // COMM_002 — 0.05
 
-  // Hardware
-  Server_Base_Cost_Per_1K_Users: number; // HW_001 — 5,000,000
-  SMS_OTP_Rate: number;            // HW_002 — 800
+  // Hardware / Infrastructure
+  Server_Base_Infra_Cost: number;      // HW_001 — fixed monthly infra floor
+  Server_Cost_Per_100_Users: number;   // HW_002 — compute scale per 100 concurrent users
+  Storage_Cost_Per_GB: number;         // HW_003 — storage unit price
+  SMS_OTP_Rate: number;                // HW_004 — optional third-party OTP unit price
 
   // Risk defaults (aligned with heuristic_matrix.csv Buffer_Percentage)
   Risk_Data_Cleansing_Default: number;   // RISK_001 — 0.1866

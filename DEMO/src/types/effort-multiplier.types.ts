@@ -29,6 +29,19 @@ export interface AISlotEstimate {
   reasoning: string | null;
 }
 
+export interface AIInfraNumberSlotEstimate extends AISlotEstimate {
+  confidence?: Confidence | null;
+  is_extracted?: boolean;
+}
+
+export interface AIInfraBooleanSlotEstimate {
+  value: boolean | null;
+  evidence: string | null;
+  reasoning: string | null;
+  confidence?: Confidence | null;
+  is_extracted?: boolean;
+}
+
 // ─── State Reconciliation: EM Lifecycle ───────────────────────────────────────
 // EMPTY → AI_PENDING (AI filled, awaiting Pre-sales review)
 //       → CONFIRMED (Pre-sales approved or adjusted)
@@ -60,6 +73,9 @@ export interface EffortMultiplierSet {
   matchedModules?: { module_id: string; reasoning: string }[];
   roleAllocation?: { [key: string]: AISlotEstimate };
   userCount?: AISlotEstimate;
+  concurrent_users?: AIInfraNumberSlotEstimate;
+  expected_storage_gb?: AIInfraNumberSlotEstimate;
+  requires_high_availability?: AIInfraBooleanSlotEstimate;
   estimatedManDays?: number | null;
   primaryRole?: 'Junior' | 'Senior' | 'PM' | 'BA' | null;
   suggestions?: string[];

@@ -173,7 +173,75 @@
         </div>
 
         <!-- Data Risk Group -->
-        <div class="slot-group-label">D — Data Risk</div>
+        <!-- INFRASTRUCTURE REQUIREMENTS -->
+        <div class="slot-group-label" style="color: var(--risk-medium); margin-top: 12px;">☁️ — Cloud Infrastructure</div>
+
+        <!-- Concurrent Users -->
+        <div class="slot-card" id="slot-infra-concurrent" data-scope="concurrent_users" data-status="empty">
+          <div class="slot-card-header"><span class="slot-icon">🚦</span><div class="slot-content"><div class="slot-name">Concurrent Users (CCU)</div><div class="slot-value" id="concurrent_users-value">—</div><div class="slot-confidence" id="concurrent_users-conf"></div></div><span class="slot-indicator"></span></div>
+          <div class="slot-expand-panel">
+            <div class="slot-evidence-block"><div class="slot-detail-label">💬 Evidence</div><div class="slot-evidence-text" id="concurrent_users-evidence-text">—</div></div>
+            <div class="slot-reasoning-block"><div class="slot-detail-label">🧠 Reasoning</div><div class="slot-reasoning-text" id="concurrent_users-reasoning-text">—</div></div>
+            <div class="slot-adjust-block">
+              <div style="font-size: 11px; margin-bottom: 8px;">Override Max Concurrent Users:</div>
+              <input type="number" id="inp-concurrent-users" style="width: 100%; background: rgba(0,0,0,0.3); border: 1px solid rgba(255,255,255,0.1); color: white; padding: 6px; border-radius: 4px;" placeholder="Ví dụ: 50" min="1"/>
+              <div style="font-size: 10px; color: var(--text-muted); margin-top: 4px;">* Mặc định = 10% tổng số User nếu AI không bóc tách được.</div>
+              <div class="slot-action-btns">
+                <button class="btn-confirm-em">✅ Đồng ý</button>
+                <button class="btn-adjust-em">🔄 Cập nhật</button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Storage GB -->
+        <div class="slot-card" id="slot-infra-storage" data-scope="expected_storage_gb" data-status="empty">
+          <div class="slot-card-header"><span class="slot-icon">💽</span><div class="slot-content"><div class="slot-name">Storage Expected (GB)</div><div class="slot-value" id="expected_storage_gb-value">—</div><div class="slot-confidence" id="expected_storage_gb-conf"></div></div><span class="slot-indicator"></span></div>
+          <div class="slot-expand-panel">
+            <div class="slot-evidence-block"><div class="slot-detail-label">💬 Evidence</div><div class="slot-evidence-text" id="expected_storage_gb-evidence-text">—</div></div>
+            <div class="slot-reasoning-block"><div class="slot-detail-label">🧠 Reasoning</div><div class="slot-reasoning-text" id="expected_storage_gb-reasoning-text">—</div></div>
+            <div class="slot-adjust-block">
+              <div style="font-size: 11px; margin-bottom: 8px;">Override Storage (GB/Month):</div>
+              <div style="display: flex; gap: 8px; margin-bottom: 8px;">
+                <select id="sel-storage-preset" style="flex: 1; background: rgba(0,0,0,0.3); border: 1px solid rgba(255,255,255,0.1); color: white; padding: 6px; border-radius: 4px; font-size: 12px;">
+                  <option value="">-- Mức suy luận tự động --</option>
+                  <option value="10">Text & Database (~10GB)</option>
+                  <option value="100">Document & Hình ảnh (~100GB)</option>
+                  <option value="500">Video & Audio (~500GB+)</option>
+                </select>
+                <input type="number" id="inp-storage-gb" style="width: 80px; background: rgba(0,0,0,0.3); border: 1px solid rgba(255,255,255,0.1); color: white; padding: 6px; border-radius: 4px;" placeholder="GB" min="1"/>
+              </div>
+              <div style="font-size: 10px; color: var(--text-muted); margin-top: 4px;">* Tính phí S3 ~ 550đ/GB.</div>
+              <div class="slot-action-btns">
+                <button class="btn-confirm-em">✅ Đồng ý</button>
+                <button class="btn-adjust-em">🔄 Cập nhật</button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- High Availability -->
+        <div class="slot-card" id="slot-infra-ha" data-scope="requires_high_availability" data-status="empty">
+          <div class="slot-card-header"><span class="slot-icon">🛡️</span><div class="slot-content"><div class="slot-name">High Availability (SLA)</div><div class="slot-value" id="requires_high_availability-value">—</div><div class="slot-confidence" id="requires_high_availability-conf"></div></div><span class="slot-indicator"></span></div>
+          <div class="slot-expand-panel">
+            <div class="slot-evidence-block"><div class="slot-detail-label">💬 Evidence</div><div class="slot-evidence-text" id="requires_high_availability-evidence-text">—</div></div>
+            <div class="slot-reasoning-block"><div class="slot-detail-label">🧠 Reasoning</div><div class="slot-reasoning-text" id="requires_high_availability-reasoning-text">—</div></div>
+            <div class="slot-adjust-block">
+              <div style="font-size: 11px; margin-bottom: 8px;">Yêu cầu độ sẵn sàng cao (Chống sập mạng):</div>
+              <label style="display: flex; align-items: center; gap: 8px; font-size: 13px; color: white; cursor: pointer;">
+                <input type="checkbox" id="chk-high-availability" style="width: 16px; height: 16px;" />
+                Kích hoạt Multi-Zone & Load Balancer
+              </label>
+              <div style="font-size: 10px; color: var(--risk-high); margin-top: 6px; font-style: italic;">* Cảnh báo: Tăng x1.5 lần tổng chi phí Server duy trì.</div>
+              <div class="slot-action-btns" style="margin-top: 12px;">
+                <button class="btn-confirm-em">✅ Đồng ý</button>
+                <button class="btn-adjust-em">🔄 Cập nhật</button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="slot-group-label" style="margin-top: 12px;">D — Data Risk</div>
         <div class="slot-card" id="slot-EM_D1" data-em="EM_D1" data-status="empty">
           <div class="slot-card-header"><span class="slot-icon">📄</span><div class="slot-content"><div class="slot-name">Data Format</div><div class="slot-value">—</div><div class="slot-confidence"></div></div><span class="slot-indicator"></span></div>
           <div class="slot-expand-panel"><div class="slot-evidence-block"><div class="slot-detail-label">💬 Evidence</div><div class="slot-evidence-text">—</div></div><div class="slot-reasoning-block"><div class="slot-detail-label">🧠 Reasoning</div><div class="slot-reasoning-text">—</div></div><div class="slot-adjust-block"><div class="slot-slider-row"><input type="range" class="slot-slider" min="1.00" max="1.20" step="0.01" value="1.00" /><span class="slot-slider-val">1.00</span></div><input type="text" class="slot-reason-input" placeholder="Lý do điều chỉnh (tuỳ chọn)..." /><div class="slot-action-btns"><button class="btn-confirm-em">✅ Đồng ý</button><button class="btn-adjust-em">🔄 Cập nhật</button></div></div></div>

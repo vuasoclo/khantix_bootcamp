@@ -6,6 +6,12 @@ export interface CostLineItem {
   category: string;         // e.g. "Labor", "Server Infrastructure", "License"
   amount: number;           // VND
   explanation: string;      // plain English: what this covers and why
+  components?: Array<{
+    name: string;
+    value: number | string;
+    reason: string;
+    citation?: string;
+  }>;
 }
 
 export interface RiskAdjustment {

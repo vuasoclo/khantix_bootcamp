@@ -14,10 +14,24 @@ export const baseReport = (req: Request, res: Response) => {
     return res.status(400).json({ error: 'sessionId query param is required' });
   }
 
-  const manDaysOverride = req.query.estimatedManDays ? parseInt(req.query.estimatedManDays as string, 10) : null;
-  const roleOverride = req.query.primaryRole as string | null;
-  const userCountOverride = req.query.userCount ? parseInt(req.query.userCount as string, 10) : 100;
-  const roleAllocationOverride = req.body.roleAllocation || null;
+  const userCountOverride = req.query.userCount ? parseInt(req.query.userCount as string, 10) : null;
+  const concurrentUsersOverride = req.query.concurrent_users ? parseInt(req.query.concurrent_users as string, 10) : null;
+  const expectedStorageGBOverride = req.query.expected_storage_gb ? parseFloat(req.query.expected_storage_gb as string) : null;
+  const requiresHAOverride =
+    req.query.requires_high_availability !== undefined
+      ? String(req.query.requires_high_availability).toLowerCase() === 'true'
+      : null;
+
+  let roleAllocationOverride: any = null;
+  if (req.query.roleAllocation) {
+    try {
+      roleAllocationOverride = JSON.parse(req.query.roleAllocation as string);
+    } catch {
+      roleAllocationOverride = null;
+    }
+  } else if ((req as any).body?.roleAllocation) {
+    roleAllocationOverride = (req as any).body.roleAllocation;
+  }
 
   const serverSession = sessionRepository.get(sessionId);
   if (!serverSession) {
@@ -25,11 +39,45 @@ export const baseReport = (req: Request, res: Response) => {
   }
 
   const emSet = serverSession.session.emSet;
-  const userCount = userCountOverride || (typeof emSet.userCount?.value === 'number' ? emSet.userCount.value : null) || 100;
+  const userCount = userCountOverride ?? (typeof emSet.userCount?.value === 'number' ? emSet.userCount.value : null) ?? 100;
+
+  const effectiveEMSet = {
+    ...emSet,
+    concurrent_users:
+      concurrentUsersOverride !== null && !Number.isNaN(concurrentUsersOverride)
+        ? {
+            value: concurrentUsersOverride,
+            confidence: 'high' as const,
+            is_extracted: true,
+            evidence: 'Manual override from UI',
+            reasoning: 'Pre-sales override via base-report query',
+          }
+        : emSet.concurrent_users,
+    expected_storage_gb:
+      expectedStorageGBOverride !== null && !Number.isNaN(expectedStorageGBOverride)
+        ? {
+            value: expectedStorageGBOverride,
+            confidence: 'high' as const,
+            is_extracted: true,
+            evidence: 'Manual override from UI',
+            reasoning: 'Pre-sales override via base-report query',
+          }
+        : emSet.expected_storage_gb,
+    requires_high_availability:
+      requiresHAOverride !== null
+        ? {
+            value: requiresHAOverride,
+            confidence: 'high' as const,
+            is_extracted: true,
+            evidence: 'Manual override from UI',
+            reasoning: 'Pre-sales override via base-report query',
+          }
+        : emSet.requires_high_availability,
+  };
 
   const defaultRoleAllocation = {
     BA: 0,
-    Senior: emSet.estimatedManDays || 60,
+    Senior: effectiveEMSet.estimatedManDays || 60,
     Junior: 0,
     PM: 0,
   };
@@ -37,31 +85,33 @@ export const baseReport = (req: Request, res: Response) => {
   let roleAllocation = defaultRoleAllocation;
   if (roleAllocationOverride) {
     roleAllocation = roleAllocationOverride;
-  } else if (emSet.roleAllocation) {
+  } else if (effectiveEMSet.roleAllocation) {
     roleAllocation = {
-      BA: emSet.roleAllocation.BA?.value || 0,
-      Senior: emSet.roleAllocation.Senior?.value || 0,
-      Junior: emSet.roleAllocation.Junior?.value || 0,
-      PM: emSet.roleAllocation.PM?.value || 0,
+      BA: effectiveEMSet.roleAllocation.BA?.value || 0,
+      Senior: effectiveEMSet.roleAllocation.Senior?.value || 0,
+      Junior: effectiveEMSet.roleAllocation.Junior?.value || 0,
+      PM: effectiveEMSet.roleAllocation.PM?.value || 0,
     };
   }
 
+  const calcResult = calculateWithEM(
+    {
+      emSet: effectiveEMSet,
+      roleAllocation,
+      userCount,
+      emDefinitions: emDefinitionsMap,
+    },
+    config
+  );
+
+  const laborCost = calcResult.costLineItems.find((x) => x.category === 'Labor')?.amount || 0;
+  const serverCost = calcResult.costLineItems.find((x) => x.category === 'Server & Infrastructure')?.amount || 0;
+  const licenseCost = calcResult.costLineItems.find((x) => x.category === 'License & Reuse')?.amount || 0;
+  const baseCost = calcResult._debug.baseCost;
+  const totalRecommendedPrice = calcResult.recommendedPrice;
   const manDays = roleAllocation.BA + roleAllocation.Senior + roleAllocation.Junior + roleAllocation.PM;
 
-  const laborCost = (
-    roleAllocation.BA * config.Rate_BA +
-    roleAllocation.PM * config.Rate_PM +
-    roleAllocation.Senior * config.Rate_Dev_Senior +
-    roleAllocation.Junior * config.Rate_Dev_Junior
-  );
-  
-  const serverCost = config.Server_Base_Cost_Per_1K_Users * Math.max(1, Math.ceil(userCount / 1000));
-  const licenseCost = laborCost * 0.2 * (1 - config.Reuse_Factor_Default);
-  const baseCost = laborCost + serverCost + licenseCost;
-
-  const totalRecommendedPrice = baseCost * emSet.compoundMultiplier;
-
-  const filledEMs = emSet.multipliers
+  const filledEMs = effectiveEMSet.multipliers
     .filter(m => m.value !== null)
     .map(m => ({
       em_id: m.em_id,
@@ -73,13 +123,16 @@ export const baseReport = (req: Request, res: Response) => {
       reasoningHistory: m.reasoningHistory,
     }));
 
-  const missingEMs = emSet.multipliers
+  const missingEMs = effectiveEMSet.multipliers
     .filter(m => m.value === null)
     .map(m => ({
       em_id: m.em_id,
       name: m.name,
       range: m.range,
     }));
+
+  const serverLine = calcResult.costLineItems.find((x) => x.category === 'Server & Infrastructure');
+  const licenseLine = calcResult.costLineItems.find((x) => x.category === 'License & Reuse');
 
   console.log(`[BaseReport] ${sessionId} | Total: ${totalRecommendedPrice.toLocaleString()} VND (Base: ${baseCost.toLocaleString()}) | Filled: ${filledEMs.length}/12`);
 
@@ -92,13 +145,23 @@ export const baseReport = (req: Request, res: Response) => {
     laborCost,
     serverCost,
     licenseCost,
-    compoundMultiplier: emSet.compoundMultiplier,
-    effectiveBufferPercent: emSet.effectiveBufferPercent,
+    compoundMultiplier: calcResult._debug.compoundMultiplier,
+    effectiveBufferPercent: `+${((calcResult._debug.compoundMultiplier - 1) * 100).toFixed(1)}%`,
     filledEMs,
     missingEMs,
     filledCount: filledEMs.length,
     missingCount: missingEMs.length,
-    suggestions: emSet.suggestions || [],
+    suggestions: effectiveEMSet.suggestions || [],
+    narrative: calcResult.narrative,
+    infrastructureBreakdown: serverLine?.components || [],
+    licenseBreakdown: licenseLine?.components || [],
+    pricingEvidence: {
+      userCount: effectiveEMSet.userCount,
+      concurrent_users: effectiveEMSet.concurrent_users,
+      expected_storage_gb: effectiveEMSet.expected_storage_gb,
+      requires_high_availability: effectiveEMSet.requires_high_availability,
+      matchedModules: effectiveEMSet.matchedModules || [],
+    },
   });
 };
 
@@ -151,6 +214,11 @@ export const calculate = (req: Request, res: Response) => {
 export const report = (req: Request, res: Response) => {
   const sessionId = req.query.sessionId as string;
   const userCount = req.query.userCount ? parseInt(req.query.userCount as string) : undefined;
+  const concurrentUsers = req.query.concurrent_users ? parseInt(req.query.concurrent_users as string, 10) : undefined;
+  const expectedStorageGB = req.query.expected_storage_gb ? parseFloat(req.query.expected_storage_gb as string) : undefined;
+  const requiresHA = req.query.requires_high_availability !== undefined
+    ? String(req.query.requires_high_availability).toLowerCase() === 'true'
+    : undefined;
   // Fallbacks for query params if roleAllocation is passed
   const roleAllocationQuery = req.query.roleAllocation ? JSON.parse(req.query.roleAllocation as string) : undefined;
 
@@ -181,8 +249,42 @@ export const report = (req: Request, res: Response) => {
     };
   }
 
+  const effectiveEMSet = {
+    ...serverSession.session.emSet,
+    concurrent_users:
+      concurrentUsers !== undefined
+        ? {
+            value: concurrentUsers,
+            confidence: 'high' as const,
+            is_extracted: true,
+            evidence: 'Manual override from report query',
+            reasoning: 'Pre-sales override',
+          }
+        : serverSession.session.emSet.concurrent_users,
+    expected_storage_gb:
+      expectedStorageGB !== undefined
+        ? {
+            value: expectedStorageGB,
+            confidence: 'high' as const,
+            is_extracted: true,
+            evidence: 'Manual override from report query',
+            reasoning: 'Pre-sales override',
+          }
+        : serverSession.session.emSet.expected_storage_gb,
+    requires_high_availability:
+      requiresHA !== undefined
+        ? {
+            value: requiresHA,
+            confidence: 'high' as const,
+            is_extracted: true,
+            evidence: 'Manual override from report query',
+            reasoning: 'Pre-sales override',
+          }
+        : serverSession.session.emSet.requires_high_availability,
+  };
+
   const input: EMCalculatorInput = {
-    emSet: serverSession.session.emSet,
+    emSet: effectiveEMSet,
     roleAllocation: effectiveRoleAllocation,
     userCount: userCount ?? (typeof serverSession.session.emSet.userCount?.value === 'number' ? serverSession.session.emSet.userCount.value : null) ?? 100,
     emDefinitions: emDefinitionsMap,

@@ -31,6 +31,15 @@ Use this exact schema:
     "evidence": "string or null",
     "reasoning": "string or null"
   },
+  "concurrent_users": {
+    "value": "number or null", "confidence": "high|medium|low|null", "is_extracted": true|false, "evidence": "string or null", "reasoning": "string or null"
+  },
+  "expected_storage_gb": {
+    "value": "number or null", "confidence": "high|medium|low|null", "is_extracted": true|false, "evidence": "string or null", "reasoning": "string or null"
+  },
+  "requires_high_availability": {
+    "value": "boolean or null", "confidence": "high|medium|low|null", "is_extracted": true|false, "evidence": "string or null", "reasoning": "string or null"
+  },
   "estimatedManDays": "number — your estimation of base man-days required for this scope, or null",
   "primaryRole": "Junior | Senior | PM | BA | null",
   "suggestions": [
@@ -63,5 +72,6 @@ Evidence Rules:
 - Do NOT repeat unchanged EMs from previous turns.
 - "evidence" MUST be the customer's EXACT words quoted from the transcript. NOT your paraphrase.
 - If you cannot find a direct quote → evidence must be null AND value must be null.
+- If no new quote exists for a field, keep evidence/reasoning as null. Never emit placeholders such as "Carried over from previous state" or "Already established in project scope".
 - Set allSlotsFilled to true only when ALL 12 EMs have non-null values.
 - No markdown fences. No extra text. Valid JSON only.
