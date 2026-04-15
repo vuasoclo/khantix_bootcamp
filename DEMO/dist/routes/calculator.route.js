@@ -1,0 +1,10 @@
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+const express_1 = require("express");
+const calculator_controller_1 = require("../controllers/calculator.controller");
+const router = (0, express_1.Router)();
+router.get('/base-report', calculator_controller_1.baseReport);
+router.post('/calculate', calculator_controller_1.calculate);
+router.get('/report', calculator_controller_1.report);
+router.post('/override', calculator_controller_1.override);
+exports.default = router;

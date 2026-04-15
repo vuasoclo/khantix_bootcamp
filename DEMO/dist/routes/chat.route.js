@@ -1,0 +1,10 @@
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+const express_1 = require("express");
+const chat_controller_1 = require("../controllers/chat.controller");
+const router = (0, express_1.Router)();
+router.get('/modules', chat_controller_1.getModulesList);
+router.post('/analyze-transcript', chat_controller_1.analyzeTranscript);
+router.post('/profile', chat_controller_1.profile);
+router.post('/confirm-em', chat_controller_1.confirmEm);
+exports.default = router;

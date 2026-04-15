@@ -1,4 +1,5 @@
 import { InvestigatorService, EMSessionState } from '../services/investigator.service';
+import { NegotiationAuditLog } from '../types/negotiation.types';
 
 export interface OverrideLogEntry {
   em_id: string;
@@ -14,6 +15,7 @@ export interface ServerSession {
   session: EMSessionState;
   investigator: InvestigatorService;
   overrideLogs: OverrideLogEntry[];
+  negotiationLogs: NegotiationAuditLog[];
   createdAt: Date;
 }
 
@@ -53,6 +55,7 @@ class InMemorySessionRepository implements ISessionRepository {
         session,
         investigator,
         overrideLogs: [],
+        negotiationLogs: [],
         createdAt: new Date(),
       });
       console.log(`[Session] Created: ${sessionId}`);

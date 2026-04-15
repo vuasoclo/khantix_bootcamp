@@ -22,7 +22,18 @@ const state = {
   priceBreakdown: null,
   originalPrice: null,
   transcriptRound: 0,
-  moduleCatalog: []
+  moduleCatalog: [],
+  phase: 'pre_base',
+  baseReportData: null,
+  negotiation: {
+    analysis: null,
+    intent: null,
+    intentConfirmed: false,
+    tierQuotes: null,
+    cardsCatalog: [],
+    selectedCardIds: [],
+    lastOutcome: null,
+  }
 };
 
 // ─── Utilities ────────────────────────────────────────────────────────────────
@@ -100,6 +111,768 @@ function displayEvidenceText(text) {
 
 function displayReasoningText(text) {
   return isCarryOverPlaceholderText(text) ? '—' : (text || '—');
+}
+
+function uniq(items) {
+  return [...new Set((items || []).filter(Boolean))];
+}
+
+function parseBudgetVnd(text) {
+  if (!text || !String(text).trim()) return null;
+  const normalized = String(text).toLowerCase();
+
+  const parseRawNumber = (raw) => {
+    const v = parseFloat(String(raw).replace(',', '.'));
+    return Number.isNaN(v) ? null : v;
+  };
+
+  let m = normalized.match(/(\d+(?:[.,]\d+)?)\s*(tỷ|ty|tỉ|ti)\b/i);
+  if (m) {
+    const n = parseRawNumber(m[1]);
+    if (n !== null) return Math.round(n * 1_000_000_000);
+  }
+
+  m = normalized.match(/(\d+(?:[.,]\d+)?)\s*(triệu|trieu|tr|m)\b/i);
+  if (m) {
+    const n = parseRawNumber(m[1]);
+    if (n !== null) return Math.round(n * 1_000_000);
+  }
+
+  m = normalized.match(/\b(\d{7,12})\b/);
+  if (m) {
+    const n = parseInt(m[1], 10);
+    return Number.isNaN(n) ? null : n;
+  }
+
+  return null;
+}
+
+function parseTierCandidate(text) {
+  const s = String(text || '').toLowerCase();
+  if (/premium|cao cấp|toàn diện|turn\s*-?\s*key/i.test(s)) return 'premium';
+  if (/basic|mvp|cơ bản/i.test(s)) return 'basic';
+  return 'standard';
+}
+
+function extractCapabilities(text) {
+  const s = String(text || '').toLowerCase();
+  const caps = [];
+
+  if (/team\s*it|it nội bộ|it noi bo|đội\s*kỹ\s*thuật|doi\s*ky\s*thuat|in-house|dev\s*team|developer/i.test(s)) {
+    caps.push('it_team');
+  }
+  if (/data\s*team|đội\s*data|doi\s*data|analyst|data\s*engineer|bi\s*team/i.test(s)) {
+    caps.push('data_team');
+  }
+  if (/ops|hạ tầng|ha tang|infra/i.test(s)) {
+    caps.push('infra_team');
+  }
+
+  return uniq(caps);
+}
+
+function badge(pass, yes = 'PASS', no = 'FAIL') {
+  return `<span class="guard-badge ${pass ? 'pass' : 'fail'}">${pass ? yes : no}</span>`;
+}
+
+function setPhase(nextPhase) {
+  state.phase = nextPhase;
+
+  const isBaseReady = nextPhase === 'base_ready' || nextPhase === 'negotiation_active';
+  const startBtn = document.getElementById('btn-start-negotiation');
+  const negotiationStep = document.getElementById('negotiation-step-container');
+  const tabNeg = document.getElementById('tab-negotiation');
+  const quoteSection = document.getElementById('phase3-quote-section');
+
+  if (startBtn) startBtn.hidden = !isBaseReady;
+  if (tabNeg) tabNeg.disabled = !isBaseReady;
+  if (quoteSection) quoteSection.hidden = !isBaseReady;
+
+  if (negotiationStep) {
+    negotiationStep.hidden = nextPhase !== 'negotiation_active';
+  }
+
+  if (nextPhase !== 'negotiation_active') {
+    showEMTab();
+  }
+}
+
+function showEMTab() {
+  const emTab = document.getElementById('tab-em');
+  const negTab = document.getElementById('tab-negotiation');
+  const emProgress = document.getElementById('slot-progress-wrap');
+  const emCards = document.getElementById('slot-cards');
+  const negPanel = document.getElementById('negotiation-controls-panel');
+  const panelTitle = document.querySelector('#slot-panel .panel-title');
+
+  if (emTab) emTab.classList.add('active');
+  if (negTab) negTab.classList.remove('active');
+  if (emProgress) emProgress.hidden = false;
+  if (emCards) emCards.hidden = false;
+  if (negPanel) negPanel.hidden = true;
+  if (panelTitle) panelTitle.innerHTML = '<span class="icon">🧠</span> Effort Multipliers';
+}
+
+function showNegotiationTab() {
+  const emTab = document.getElementById('tab-em');
+  const negTab = document.getElementById('tab-negotiation');
+  if (negTab?.disabled) return;
+
+  const emProgress = document.getElementById('slot-progress-wrap');
+  const emCards = document.getElementById('slot-cards');
+  const negPanel = document.getElementById('negotiation-controls-panel');
+  const panelTitle = document.querySelector('#slot-panel .panel-title');
+
+  if (emTab) emTab.classList.remove('active');
+  if (negTab) negTab.classList.add('active');
+  if (emProgress) emProgress.hidden = true;
+  if (emCards) emCards.hidden = true;
+  if (negPanel) negPanel.hidden = false;
+  if (panelTitle) panelTitle.innerHTML = '<span class="icon">🤝</span> Negotiation Workspace';
+}
+
+function setupSlotTabs() {
+  const emTab = document.getElementById('tab-em');
+  const negTab = document.getElementById('tab-negotiation');
+  emTab?.addEventListener('click', showEMTab);
+  negTab?.addEventListener('click', showNegotiationTab);
+}
+
+function buildLocalNegotiationAnalysis(transcript) {
+  const budget = parseBudgetVnd(transcript);
+  const tier = parseTierCandidate(transcript);
+  const caps = extractCapabilities(transcript);
+
+  const suggestions = [];
+  if (!budget) {
+    suggestions.push('Hỏi rõ ngân sách trần khách hàng chấp nhận (VND).');
+  } else {
+    suggestions.push(`Xác nhận lại ngân sách ${formatVND(budget)} với khách trước khi chốt phương án.`);
+  }
+  suggestions.push('Giải thích rõ: giảm giá đi kèm cắt scope hoặc chuyển trách nhiệm cho khách.');
+  if (!caps.includes('it_team')) {
+    suggestions.push('Khách chưa thể hiện có team IT nội bộ, hạn chế đề xuất card chuyển giao kỹ thuật.');
+  }
+
+  return {
+    selectedTierCandidate: tier,
+    clientBudgetVnd: budget,
+    clientCapabilities: caps,
+    confidence: budget ? (caps.length > 0 ? 'high' : 'medium') : 'low',
+    evidenceQuotes: [String(transcript || '').trim().slice(0, 220) || 'Không có trích dẫn rõ ràng'],
+    suggestions,
+  };
+}
+
+function normalizeNegotiationAnalyze(raw, transcript) {
+  if (!raw) return buildLocalNegotiationAnalysis(transcript);
+  const intent = raw.intentCandidates || raw.intent || raw;
+
+  return {
+    selectedTierCandidate:
+      intent.selectedTier ||
+      intent.selectedTierCandidate ||
+      parseTierCandidate(transcript),
+    clientBudgetVnd:
+      intent.clientBudgetVnd ||
+      intent.clientBudget ||
+      parseBudgetVnd(transcript),
+    clientCapabilities:
+      intent.clientCapabilities ||
+      extractCapabilities(transcript),
+    confidence:
+      raw.confidence ||
+      intent.confidence ||
+      'medium',
+    evidenceQuotes:
+      raw.evidence ||
+      intent.evidenceQuotes ||
+      intent.evidence ||
+      [String(transcript || '').trim().slice(0, 220)],
+    suggestions:
+      raw.suggestions ||
+      intent.suggestions ||
+      buildLocalNegotiationAnalysis(transcript).suggestions,
+  };
+}
+
+function updateNegotiationSuggestions(analysis) {
+  const ul = document.getElementById('ai-negotiation-suggestions');
+  const script = document.getElementById('sales-script-preview');
+  if (!ul || !script) return;
+
+  const tips = analysis?.suggestions || [];
+  ul.innerHTML = tips.length
+    ? tips.map((x) => `<li>${esc(x)}</li>`).join('')
+    : '<li>Chưa có gợi ý đàm phán.</li>';
+
+  const tierText = analysis?.selectedTierCandidate || 'standard';
+  const budgetText = analysis?.clientBudgetVnd ? formatVND(analysis.clientBudgetVnd) : 'chưa rõ';
+  script.innerHTML = `
+    <strong>Kịch bản mở đầu:</strong> Dạ em hiểu bên mình đang cân ngân sách quanh <strong>${esc(budgetText)}</strong> cho gói <strong>${esc(tierText)}</strong>.<br/>
+    Em đề xuất mình đi theo hướng tối ưu phạm vi và trách nhiệm triển khai để giữ hiệu quả vận hành mà vẫn khớp ngân sách.
+  `;
+}
+
+function renderIntentCandidates(analysis) {
+  const tierEl = document.getElementById('intent-selected-tier');
+  const budgetEl = document.getElementById('intent-client-budget');
+  const confEl = document.getElementById('intent-confidence');
+  const evidenceEl = document.getElementById('intent-evidence-list');
+
+  if (tierEl) tierEl.value = analysis.selectedTierCandidate || 'standard';
+  if (budgetEl) budgetEl.value = analysis.clientBudgetVnd || '';
+  if (confEl) confEl.textContent = `Confidence: ${analysis.confidence || '—'}`;
+  if (evidenceEl) {
+    const rows = analysis.evidenceQuotes || [];
+    evidenceEl.innerHTML = rows.length
+      ? rows.map((x) => `<li>${esc(x)}</li>`).join('')
+      : '<li>Chưa có bằng chứng.</li>';
+  }
+}
+
+function createTierQuotes(baseData) {
+  const anchorPrice = Math.round(baseData?.totalRecommendedPrice || baseData?.baseCost || 0);
+  const matchedModules = (baseData?.pricingEvidence?.matchedModules || [])
+    .map((x) => x.module_id || x.moduleId)
+    .filter(Boolean);
+
+  const scopeSeed = matchedModules.length ? matchedModules.slice(0, 3) : ['Core CPQ Engine', 'Báo cáo cơ bản'];
+
+  return {
+    basic: {
+      tier: 'basic',
+      priceVnd: Math.round(anchorPrice * 0.85),
+      scopeModules: [scopeSeed[0] || 'Core CPQ Engine'],
+      clientResponsibilities: ['Khách tự làm sạch data theo template', 'Khách tự vận hành import/export'],
+      vendorResponsibilities: ['Triển khai core workflow', 'Training 1 buổi online'],
+      mandatoryClauses: ['Vendor không chịu trách nhiệm data rác đầu vào'],
+    },
+    standard: {
+      tier: 'standard',
+      priceVnd: Math.round(anchorPrice * 1.0),
+      scopeModules: scopeSeed,
+      clientResponsibilities: ['Khách chuẩn hóa dữ liệu theo form thống nhất'],
+      vendorResponsibilities: ['Triển khai đầy đủ scope chuẩn', 'Hỗ trợ onboarding'],
+      mandatoryClauses: ['Cam kết timeline bàn giao dữ liệu đầu vào'],
+    },
+    premium: {
+      tier: 'premium',
+      priceVnd: Math.round(anchorPrice * 1.2),
+      scopeModules: uniq([...scopeSeed, 'Advanced Analytics']),
+      clientResponsibilities: ['Bố trí đầu mối nghiệp vụ duyệt UAT'],
+      vendorResponsibilities: ['Ôm full tích hợp và migration', 'SLA ưu tiên cao'],
+      mandatoryClauses: ['SLA phản hồi và phạm vi hỗ trợ được ghi rõ phụ lục'],
+    },
+  };
+}
+
+function renderTierCard(cardId, data, selected) {
+  const card = document.getElementById(cardId);
+  if (!card || !data) return;
+
+  card.classList.toggle('tier-selected', !!selected);
+  const price = card.querySelector('.tier-price');
+  if (price) price.textContent = formatVND(data.priceVnd || 0);
+
+  const scopeEl = card.querySelector('[data-role="scope"]');
+  const clientEl = card.querySelector('[data-role="client"]');
+  const clauseEl = card.querySelector('[data-role="clause"]');
+
+  if (scopeEl) scopeEl.innerHTML = (data.scopeModules || []).slice(0, 2).map((x) => `<li>• Scope: ${esc(x)}</li>`).join('') || '<li>• Scope: —</li>';
+  if (clientEl) clientEl.innerHTML = (data.clientResponsibilities || []).slice(0, 2).map((x) => `<li>• Client: ${esc(x)}</li>`).join('') || '<li>• Client: —</li>';
+  if (clauseEl) clauseEl.innerHTML = (data.mandatoryClauses || []).slice(0, 2).map((x) => `<li>• Clause: ${esc(x)}</li>`).join('') || '<li>• Clause: —</li>';
+}
+
+function renderTierQuotes(tiers, selectedTier) {
+  if (!tiers) return;
+  renderTierCard('quote-tier-basic', tiers.basic, selectedTier === 'basic');
+  renderTierCard('quote-tier-standard', tiers.standard, selectedTier === 'standard');
+  renderTierCard('quote-tier-premium', tiers.premium, selectedTier === 'premium');
+}
+
+function buildLocalTradeoffCatalog(selectedTierPrice) {
+  return [
+    {
+      cardId: 'card-data-clean',
+      title: 'Khách tự làm sạch dữ liệu theo template chuẩn',
+      category: 'risk_transfer',
+      estimatedSavingVnd: Math.round(selectedTierPrice * 0.12),
+      valueImpactScore: 3,
+      operationRiskScore: 8,
+      requiresClientCapability: ['data_team'],
+      mandatoryClauses: ['Khách phải bàn giao data sạch trước M1, trễ hạn tính phát sinh timeline.'],
+    },
+    {
+      cardId: 'card-legacy-batch',
+      title: 'Đổi tích hợp realtime sang batch file hằng ngày',
+      category: 'risk_transfer',
+      estimatedSavingVnd: Math.round(selectedTierPrice * 0.10),
+      valueImpactScore: 4,
+      operationRiskScore: 7,
+      requiresClientCapability: ['it_team'],
+      mandatoryClauses: ['Phạm vi tích hợp chỉ dừng ở import/export batch trong phase hiện tại.'],
+    },
+    {
+      cardId: 'card-cut-analytics',
+      title: 'Cắt module Analytics nâng cao ở phase hiện tại',
+      category: 'scope_cut',
+      estimatedSavingVnd: Math.round(selectedTierPrice * 0.08),
+      valueImpactScore: 6,
+      operationRiskScore: 3,
+      requiresClientCapability: [],
+      mandatoryClauses: ['Analytics nâng cao được tách sang phase tiếp theo nếu cần.'],
+    },
+    {
+      cardId: 'card-sla-downgrade',
+      title: 'Giảm SLA từ 24/7 về giờ hành chính',
+      category: 'commercial_term',
+      estimatedSavingVnd: Math.round(selectedTierPrice * 0.05),
+      valueImpactScore: 2,
+      operationRiskScore: 2,
+      requiresClientCapability: [],
+      mandatoryClauses: ['SLA hỗ trợ áp dụng theo giờ hành chính trong hợp đồng.'],
+    },
+  ];
+}
+
+function selectCardsForGap(cards, gap) {
+  if (!cards?.length || gap <= 0) return [];
+  const sorted = [...cards].sort((a, b) => b.estimatedSavingVnd - a.estimatedSavingVnd);
+  const selected = [];
+  let covered = 0;
+  for (const card of sorted) {
+    selected.push(card.cardId);
+    covered += card.estimatedSavingVnd;
+    if (covered >= gap) break;
+  }
+  return selected;
+}
+
+function renderTradeoffCards(cards, selectedIds) {
+  const wrap = document.getElementById('negotiation-cards-list');
+  if (!wrap) return;
+  if (!cards?.length) {
+    wrap.innerHTML = '<div class="neg-empty">Không có trade-off cards.</div>';
+    return;
+  }
+
+  const selectedSet = new Set(selectedIds || []);
+  wrap.innerHTML = cards.map((card) => {
+    const reqCaps = (card.requiresClientCapability || []).join(', ') || 'None';
+    return `
+      <label class="trade-card">
+        <input type="checkbox" class="trade-card-toggle" data-card-id="${esc(card.cardId)}" ${selectedSet.has(card.cardId) ? 'checked' : ''} />
+        <div class="trade-card-body">
+          <div class="trade-card-title">${esc(card.title)}</div>
+          <div class="trade-card-meta">
+            <span>Saving: <strong>${formatVND(card.estimatedSavingVnd)}</strong></span>
+            <span>Impact: ${esc(card.valueImpactScore)}</span>
+            <span>OpRisk: ${esc(card.operationRiskScore)}</span>
+          </div>
+          <div class="trade-card-cap">Requires: ${esc(reqCaps)}</div>
+        </div>
+      </label>
+    `;
+  }).join('');
+}
+
+function evaluateNegotiationOutcome() {
+  const intent = state.negotiation.intent;
+  const tiers = state.negotiation.tierQuotes;
+  const cardsCatalog = state.negotiation.cardsCatalog || [];
+
+  if (!intent || !tiers || !tiers[intent.selectedTier]) return null;
+
+  const selectedTierPrice = tiers[intent.selectedTier].priceVnd;
+  const targetGapVnd = Math.max(0, selectedTierPrice - intent.clientBudgetVnd);
+  const selectedSet = new Set(state.negotiation.selectedCardIds || []);
+  const selectedCards = cardsCatalog.filter((x) => selectedSet.has(x.cardId));
+  const coveredGapVnd = selectedCards.reduce((sum, x) => sum + (x.estimatedSavingVnd || 0), 0);
+  const residualGapVnd = Math.max(0, targetGapVnd - coveredGapVnd);
+
+  const matchedModules = (state.baseReportData?.pricingEvidence?.matchedModules || [])
+    .map((x) => `${x.module_id || x.moduleId || ''}`.toLowerCase());
+  const hasAnalyticsModule = matchedModules.some((x) => /analytic|dashboard|báo\s*cáo|bao\s*cao/i.test(x));
+
+  let dependencyPass = true;
+  const dependencyWarnings = [];
+  if (selectedSet.has('card-cut-analytics') && !hasAnalyticsModule) {
+    dependencyPass = false;
+    dependencyWarnings.push('Card cắt Analytics đang được chọn nhưng scope hiện tại không có module Analytics để cắt.');
+  }
+
+  const capabilitySet = new Set(intent.clientCapabilities || []);
+  let operationPass = true;
+  const operationWarnings = [];
+  for (const card of selectedCards) {
+    const reqCaps = card.requiresClientCapability || [];
+    const missing = reqCaps.filter((cap) => !capabilitySet.has(cap));
+    if (missing.length > 0) {
+      operationPass = false;
+      operationWarnings.push(`${card.title}: thiếu capability ${missing.join(', ')}.`);
+    }
+  }
+
+  const mandatoryClauses = uniq(selectedCards.flatMap((x) => x.mandatoryClauses || []));
+  const riskTransferCount = selectedCards.filter((x) => x.category === 'risk_transfer').length;
+  const contractPass = riskTransferCount === 0 || mandatoryClauses.length > 0;
+
+  const pricingFloor = Math.round((state.baseReportData?.baseCost || 0) * 1.03);
+  const postDiscountPrice = selectedTierPrice - coveredGapVnd;
+  const pricingIntegrityPass = postDiscountPrice >= pricingFloor;
+
+  const allGuardrailsPass = dependencyPass && operationPass && contractPass && pricingIntegrityPass;
+  const warnings = [...dependencyWarnings, ...operationWarnings];
+
+  return {
+    selectedTierPrice,
+    targetGapVnd,
+    coveredGapVnd,
+    residualGapVnd,
+    selectedCards,
+    mandatoryClauses,
+    guardrails: {
+      dependencyPass,
+      operationPass,
+      contractPass,
+      pricingIntegrityPass,
+      allGuardrailsPass,
+    },
+    warnings,
+  };
+}
+
+function renderGuardrailPanel(outcome) {
+  const panel = document.getElementById('guardrail-status-panel');
+  if (!panel) return;
+
+  if (!outcome) {
+    panel.innerHTML = `
+      <div class="guard-item"><span>Dependency</span><span class="guard-badge pending">PENDING</span></div>
+      <div class="guard-item"><span>Operation</span><span class="guard-badge pending">PENDING</span></div>
+      <div class="guard-item"><span>Contract</span><span class="guard-badge pending">PENDING</span></div>
+      <div class="guard-item"><span>Pricing Integrity</span><span class="guard-badge pending">PENDING</span></div>
+    `;
+    return;
+  }
+
+  panel.innerHTML = `
+    <div class="guard-item"><span>Dependency</span>${badge(outcome.guardrails.dependencyPass)}</div>
+    <div class="guard-item"><span>Operation</span>${badge(outcome.guardrails.operationPass)}</div>
+    <div class="guard-item"><span>Contract</span>${badge(outcome.guardrails.contractPass)}</div>
+    <div class="guard-item"><span>Pricing Integrity</span>${badge(outcome.guardrails.pricingIntegrityPass)}</div>
+  `;
+
+  if (outcome.warnings?.length) {
+    panel.innerHTML += `<div class="guard-warnings">${outcome.warnings.map((w) => `<div>⚠️ ${esc(w)}</div>`).join('')}</div>`;
+  }
+}
+
+function renderGapSnapshot(outcome) {
+  const targetEl = document.getElementById('gap-target');
+  const coveredEl = document.getElementById('gap-covered');
+  const residualEl = document.getElementById('gap-residual');
+  if (!targetEl || !coveredEl || !residualEl) return;
+
+  if (!outcome) {
+    targetEl.textContent = '—';
+    coveredEl.textContent = '—';
+    residualEl.textContent = '—';
+    return;
+  }
+
+  targetEl.textContent = formatVND(outcome.targetGapVnd);
+  coveredEl.textContent = formatVND(outcome.coveredGapVnd);
+  residualEl.textContent = formatVND(outcome.residualGapVnd);
+}
+
+function renderPlaybook(outcome) {
+  const box = document.getElementById('quote-playbook');
+  if (!box) return;
+
+  if (!outcome) {
+    box.textContent = 'Playbook đàm phán sẽ xuất hiện sau khi generate recommendation.';
+    return;
+  }
+
+  const cards = outcome.selectedCards || [];
+  const clauses = outcome.mandatoryClauses || [];
+
+  box.innerHTML = `
+    <div><strong>Mở đầu:</strong> Dạ em hiểu áp lực ngân sách của bên mình, em đề xuất tối ưu theo các điểm đánh đổi dưới đây để đảm bảo hiệu quả triển khai.</div>
+    <ul style="margin: 8px 0 8px 18px;">
+      ${cards.length ? cards.map((c) => `<li>${esc(c.title)} (tiết kiệm ~${formatVND(c.estimatedSavingVnd)})</li>`).join('') : '<li>Chưa có card được chọn.</li>'}
+    </ul>
+    <div><strong>Điều khoản bắt buộc:</strong></div>
+    <ul style="margin: 6px 0 0 18px;">
+      ${clauses.length ? clauses.map((x) => `<li>${esc(x)}</li>`).join('') : '<li>Không có điều khoản bắt buộc.</li>'}
+    </ul>
+  `;
+}
+
+function renderNegotiationChecklist(outcome) {
+  const list = document.getElementById('quote-readiness-checklist');
+  const exportBtn = document.getElementById('btn-export-quotation');
+  const residualEl = document.getElementById('quote-residual-gap');
+  const clauseAck = document.getElementById('quote-clause-ack')?.checked;
+  if (!list || !exportBtn) return;
+
+  if (!outcome) {
+    list.innerHTML = `
+      <div class="quote-check-item"><span>Intent confirmed</span><span class="check-badge pending">PENDING</span></div>
+      <div class="quote-check-item"><span>Budget confirmed</span><span class="check-badge pending">PENDING</span></div>
+      <div class="quote-check-item"><span>Guardrails passed</span><span class="check-badge pending">PENDING</span></div>
+      <div class="quote-check-item"><span>Residual gap resolved</span><span class="check-badge pending">PENDING</span></div>
+      <div class="quote-check-item"><span>Mandatory clauses acknowledged</span><span class="check-badge pending">PENDING</span></div>
+    `;
+    if (residualEl) residualEl.textContent = '—';
+    exportBtn.disabled = true;
+    return;
+  }
+
+  const clauseSatisfied = outcome.mandatoryClauses.length === 0 || !!clauseAck;
+  const checks = [
+    { label: 'Intent confirmed', pass: state.negotiation.intentConfirmed },
+    { label: 'Budget confirmed', pass: !!state.negotiation.intent?.clientBudgetVnd },
+    { label: 'Guardrails passed', pass: outcome.guardrails.allGuardrailsPass },
+    { label: 'Residual gap resolved', pass: outcome.residualGapVnd <= 0 },
+    { label: 'Mandatory clauses acknowledged', pass: clauseSatisfied },
+  ];
+
+  list.innerHTML = checks
+    .map((x) => `<div class="quote-check-item"><span>${esc(x.label)}</span><span class="check-badge ${x.pass ? 'pass' : 'fail'}">${x.pass ? 'OK' : 'BLOCK'}</span></div>`)
+    .join('');
+
+  if (residualEl) residualEl.textContent = formatVND(outcome.residualGapVnd);
+  exportBtn.disabled = !checks.every((x) => x.pass);
+}
+
+function refreshNegotiationUI() {
+  const outcome = evaluateNegotiationOutcome();
+  state.negotiation.lastOutcome = outcome;
+  renderGuardrailPanel(outcome);
+  renderGapSnapshot(outcome);
+  renderPlaybook(outcome);
+  renderNegotiationChecklist(outcome);
+
+  if (state.negotiation.tierQuotes && state.negotiation.intent?.selectedTier) {
+    renderTierQuotes(state.negotiation.tierQuotes, state.negotiation.intent.selectedTier);
+  }
+}
+
+async function submitNegotiationAnalyze() {
+  const input = document.getElementById('negotiation-transcript-input');
+  const btn = document.getElementById('btn-negotiation-analyze');
+  const text = input?.value?.trim();
+  if (!text) {
+    updateStatus('Vui lòng nhập transcript đàm phán trước khi phân tích.', 'warning');
+    return;
+  }
+
+  btn.disabled = true;
+  btn.textContent = '⏳ Đang phân tích...';
+  updateStatus('Đang phân tích transcript đàm phán...', 'working');
+
+  try {
+    let analysis;
+    try {
+      const raw = await apiPost('/api/negotiation/analyze', {
+        sessionId: state.sessionId,
+        transcript: text,
+        targetTierHint: state.negotiation.intent?.selectedTier || 'standard',
+      });
+      analysis = normalizeNegotiationAnalyze(raw, text);
+    } catch {
+      analysis = buildLocalNegotiationAnalysis(text);
+    }
+
+    state.negotiation.analysis = analysis;
+    state.negotiation.intentConfirmed = false;
+    renderIntentCandidates(analysis);
+    updateNegotiationSuggestions(analysis);
+
+    const recommendBtn = document.getElementById('btn-generate-recommendation');
+    if (recommendBtn) recommendBtn.disabled = true;
+
+    renderNegotiationChecklist(null);
+    updateStatus('Đã phân tích intent đàm phán. Hãy Confirm Intent ở cột giữa.', 'success');
+  } catch (err) {
+    updateStatus(`Lỗi phân tích đàm phán: ${err.message}`, 'error');
+  } finally {
+    btn.disabled = false;
+    btn.textContent = 'Phân tích Ý định đàm phán';
+  }
+}
+
+function confirmNegotiationIntent() {
+  const tier = document.getElementById('intent-selected-tier')?.value || 'standard';
+  const budgetRaw = document.getElementById('intent-client-budget')?.value;
+  const budget = budgetRaw ? parseInt(budgetRaw, 10) : null;
+
+  if (!budget || Number.isNaN(budget) || budget <= 0) {
+    updateStatus('Ngân sách đàm phán chưa hợp lệ. Vui lòng nhập số VND > 0.', 'warning');
+    return;
+  }
+
+  const inferredCaps = state.negotiation.analysis?.clientCapabilities || [];
+
+  state.negotiation.intent = {
+    selectedTier: tier,
+    clientBudgetVnd: budget,
+    clientCapabilities: inferredCaps,
+  };
+  state.negotiation.intentConfirmed = true;
+
+  const recommendBtn = document.getElementById('btn-generate-recommendation');
+  if (recommendBtn) recommendBtn.disabled = false;
+
+  if (!state.negotiation.tierQuotes && state.baseReportData) {
+    state.negotiation.tierQuotes = createTierQuotes(state.baseReportData);
+  }
+  if (state.negotiation.tierQuotes) {
+    renderTierQuotes(state.negotiation.tierQuotes, tier);
+  }
+
+  refreshNegotiationUI();
+  updateStatus(`Intent đã confirm: Tier ${tier.toUpperCase()} - Budget ${formatVND(budget)}.`, 'success');
+}
+
+async function generateNegotiationRecommendation() {
+  if (!state.negotiation.intentConfirmed || !state.negotiation.intent) {
+    updateStatus('Vui lòng confirm intent trước khi generate recommendation.', 'warning');
+    return;
+  }
+
+  const btn = document.getElementById('btn-generate-recommendation');
+  btn.disabled = true;
+  btn.textContent = '⏳ Đang tạo...';
+  updateStatus('Đang tạo bộ trade-off recommendation...', 'working');
+
+  try {
+    if (!state.negotiation.tierQuotes && state.baseReportData) {
+      state.negotiation.tierQuotes = createTierQuotes(state.baseReportData);
+    }
+
+    const intent = state.negotiation.intent;
+    const selectedTierPrice = state.negotiation.tierQuotes?.[intent.selectedTier]?.priceVnd || 0;
+    const targetGap = Math.max(0, selectedTierPrice - intent.clientBudgetVnd);
+
+    let cardsCatalog;
+    let selectedCardIds;
+
+    try {
+      const raw = await apiPost('/api/negotiation/recommend', {
+        sessionId: state.sessionId,
+        confirmedIntent: intent,
+      });
+
+      cardsCatalog = raw?.tradeoffRecommendations?.[0]?.selectedCards;
+      selectedCardIds = (cardsCatalog || []).map((x) => x.cardId);
+      if (raw?.tierQuotes) state.negotiation.tierQuotes = raw.tierQuotes;
+    } catch {
+      cardsCatalog = null;
+      selectedCardIds = null;
+    }
+
+    if (!cardsCatalog || cardsCatalog.length === 0) {
+      cardsCatalog = buildLocalTradeoffCatalog(selectedTierPrice);
+      selectedCardIds = selectCardsForGap(cardsCatalog, targetGap);
+    }
+
+    state.negotiation.cardsCatalog = cardsCatalog;
+    state.negotiation.selectedCardIds = selectedCardIds;
+
+    renderTradeoffCards(cardsCatalog, selectedCardIds);
+    refreshNegotiationUI();
+
+    updateStatus('Đã tạo recommendation. Bạn có thể bật/tắt card ở cột giữa.', 'success');
+  } catch (err) {
+    updateStatus(`Lỗi tạo recommendation: ${err.message}`, 'error');
+  } finally {
+    btn.disabled = false;
+    btn.textContent = '⚙️ Generate Recommendation';
+  }
+}
+
+function exportNegotiationQuotation() {
+  const outcome = state.negotiation.lastOutcome;
+  const tiers = state.negotiation.tierQuotes;
+  const intent = state.negotiation.intent;
+  if (!outcome || !tiers || !intent) {
+    updateStatus('Chưa đủ dữ liệu để xuất báo giá.', 'warning');
+    return;
+  }
+
+  const md = [
+    '# KHantix Phase 3 Quotation',
+    '',
+    `- Session: ${state.sessionId}`,
+    `- Selected tier: ${intent.selectedTier}`,
+    `- Client budget: ${formatVND(intent.clientBudgetVnd)}`,
+    `- Residual gap: ${formatVND(outcome.residualGapVnd)}`,
+    '',
+    '## Tier Prices',
+    `- Basic: ${formatVND(tiers.basic.priceVnd)}`,
+    `- Standard: ${formatVND(tiers.standard.priceVnd)}`,
+    `- Premium: ${formatVND(tiers.premium.priceVnd)}`,
+    '',
+    '## Selected Trade-off Cards',
+    ...(outcome.selectedCards.length
+      ? outcome.selectedCards.map((x) => `- ${x.title} (Saving: ${formatVND(x.estimatedSavingVnd)})`)
+      : ['- (none)']),
+    '',
+    '## Mandatory Clauses',
+    ...(outcome.mandatoryClauses.length
+      ? outcome.mandatoryClauses.map((x) => `- ${x}`)
+      : ['- (none)']),
+    '',
+    '## Guardrails',
+    `- Dependency: ${outcome.guardrails.dependencyPass ? 'PASS' : 'FAIL'}`,
+    `- Operation: ${outcome.guardrails.operationPass ? 'PASS' : 'FAIL'}`,
+    `- Contract: ${outcome.guardrails.contractPass ? 'PASS' : 'FAIL'}`,
+    `- Pricing integrity: ${outcome.guardrails.pricingIntegrityPass ? 'PASS' : 'FAIL'}`,
+  ].join('\n');
+
+  const blob = new Blob([md], { type: 'text/markdown;charset=utf-8' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `khantix-quotation-${state.sessionId}.md`;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  URL.revokeObjectURL(url);
+
+  updateStatus('Đã xuất báo giá 3 tiers thành file markdown.', 'success');
+}
+
+function setupNegotiationInteractions() {
+  document.getElementById('btn-start-negotiation')?.addEventListener('click', () => {
+    setPhase('negotiation_active');
+    showNegotiationTab();
+    updateStatus('Đã chuyển sang phase deal giá. Hãy dán transcript đàm phán.', 'info');
+  });
+
+  document.getElementById('btn-negotiation-analyze')?.addEventListener('click', submitNegotiationAnalyze);
+  document.getElementById('btn-confirm-intent')?.addEventListener('click', confirmNegotiationIntent);
+  document.getElementById('btn-generate-recommendation')?.addEventListener('click', generateNegotiationRecommendation);
+  document.getElementById('btn-export-quotation')?.addEventListener('click', exportNegotiationQuotation);
+
+  document.getElementById('quote-clause-ack')?.addEventListener('change', refreshNegotiationUI);
+
+  document.getElementById('negotiation-cards-list')?.addEventListener('change', (e) => {
+    if (!e.target.classList.contains('trade-card-toggle')) return;
+    const cardId = e.target.dataset.cardId;
+    const selected = new Set(state.negotiation.selectedCardIds || []);
+    if (e.target.checked) {
+      selected.add(cardId);
+    } else {
+      selected.delete(cardId);
+    }
+    state.negotiation.selectedCardIds = [...selected];
+    refreshNegotiationUI();
+  });
 }
 
 // ─── API Helpers ──────────────────────────────────────────────────────────────
@@ -838,7 +1611,12 @@ async function generateBaseReport() {
 
   try {
     const data = await apiGet(query);
+    state.baseReportData = data;
     showBaseReport(data);
+    state.negotiation.tierQuotes = createTierQuotes(data);
+    renderTierQuotes(state.negotiation.tierQuotes, state.negotiation.intent?.selectedTier || 'standard');
+    setPhase('base_ready');
+    renderNegotiationChecklist(null);
     updateStatus(`Base Price: ${formatVND(data.baseCost)} (${data.filledCount}/${data.filledCount + data.missingCount} EMs)`, 'success');
   } catch (err) {
     updateStatus(`Lỗi: ${err.message}`, 'error');
@@ -885,6 +1663,8 @@ function init() {
   state.sessionId = generateSessionId();
   document.getElementById('session-badge').textContent = state.sessionId;
 
+  setPhase('pre_base');
+
   checkHealth();
 
   // Profile button
@@ -902,6 +1682,9 @@ function init() {
 
   // Setup EM card click-to-expand + confirm/adjust
   setupCardInteractions();
+  setupSlotTabs();
+  setupNegotiationInteractions();
+  renderNegotiationChecklist(null);
 
   console.log('[KHantix] Copilot Edition initialized. Session:', state.sessionId);
 }

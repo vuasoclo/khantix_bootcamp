@@ -29,10 +29,25 @@ function generateMarkdownReport(sessionId, result) {
     lines.push(`## 2. Chi Phí Nền Tảng (Base Cost - Phân rã Lớp 1)`);
     lines.push(`Tổng chi phí gốc: **${formatVND(_debug.baseCost)}**`);
     lines.push('');
-    lines.push(`| Hạng mục | Chi phí | Diễn giải |`);
-    lines.push(`| :--- | :--- | :--- |`);
     for (const item of costLineItems) {
-        lines.push(`| **${item.category}** | ${formatVND(item.amount)} | ${item.explanation} |`);
+        const linesOfExplanation = item.explanation.split('\n').filter(Boolean);
+        lines.push(`### ${item.category}: **${formatVND(item.amount)}**`);
+        for (const exp of linesOfExplanation) {
+            lines.push(`${exp.replace(/<br\/>/g, '')}`);
+        }
+        if (item.components && item.components.length > 0) {
+            lines.push('');
+            lines.push(`**Chi tiết cấu phần & trích dẫn:**`);
+            for (const comp of item.components) {
+                const formattedValue = typeof comp.value === 'number' && comp.value > 10
+                    ? formatVND(comp.value)
+                    : String(comp.value);
+                lines.push(`- **${comp.name}** = ${formattedValue}`);
+                lines.push(`  Lý do: ${comp.reason}`);
+                lines.push(`  Trích dẫn: ${comp.citation || 'Config nội bộ / fallback mặc định'}`);
+            }
+        }
+        lines.push('');
     }
     lines.push('');
     // ─── Lớp 2: Risk Multipliers ─────────────────────────────────────────────

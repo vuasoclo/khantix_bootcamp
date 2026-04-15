@@ -83,6 +83,27 @@
           
           <!-- Generate Base Price On-demand -->
           <button id="btn-base-price" style="margin-top: 8px; padding: 12px; background: var(--risk-low); color: #000; border: none; font-weight: bold; font-size: 14px; border-radius: 4px; cursor: pointer; transition: all 0.2s; box-shadow: 0 4px 12px rgba(81, 207, 102, 0.2);">⚡ Tính Base Price Nhanh</button>
+
+          <!-- Enter Phase 3 (shown after Base Report) -->
+          <button id="btn-start-negotiation" hidden style="margin-top: 8px; padding: 12px; background: linear-gradient(135deg, #f0ad4e, #ffcf7a); color: #111; border: none; font-weight: bold; font-size: 14px; border-radius: 4px; cursor: pointer; transition: all 0.2s; box-shadow: 0 4px 12px rgba(240, 173, 78, 0.25);">➡️ Tiếp tục sang Deal Giá (Phase 3)</button>
+
+          <!-- Phase 3: Negotiation Input -->
+          <div id="negotiation-step-container" class="input-card" hidden style="background: rgba(240,173,78,0.06); border: 1px solid rgba(240,173,78,0.35); border-radius: 8px; padding: 12px; display: flex; flex-direction: column; gap: 10px;">
+            <h4 style="margin: 0; color: #f0ad4e; font-size: 13px;">Giai đoạn 2N: Đàm phán ngân sách</h4>
+            <textarea id="negotiation-transcript-input" placeholder="Dán hội thoại deal giá giữa khách và pre-sales..." style="width: 100%; min-height: 92px; background: rgba(0,0,0,0.2); border: 1px solid rgba(255,255,255,0.1); color: white; padding: 8px; font-size: 13px; font-family: inherit; resize: vertical; border-radius: 4px;"></textarea>
+            <button id="btn-negotiation-analyze" style="width: 100%; padding: 8px; background: #f0ad4e; color: #111; border: none; font-weight: bold; border-radius: 4px; cursor: pointer;">Phân tích Ý định đàm phán</button>
+
+            <div style="background: rgba(0,0,0,0.2); border: 1px dashed rgba(255,255,255,0.2); border-radius: 8px; padding: 10px;">
+              <div style="margin-bottom: 8px; color: #f0ad4e; font-size: 12px; font-weight: 700;">💡 Gợi ý mớm lời cho Pre-sales</div>
+              <ul id="ai-negotiation-suggestions" style="margin: 0; padding-left: 18px; font-size: 13px; color: var(--text-secondary); line-height: 1.5;">
+                <li>Chưa có phân tích đàm phán.</li>
+              </ul>
+            </div>
+
+            <div id="sales-script-preview" style="font-size: 12px; color: var(--text-secondary); line-height: 1.55; background: rgba(0,0,0,0.2); border: 1px solid rgba(255,255,255,0.08); border-radius: 6px; padding: 10px;">
+              Kịch bản đề xuất sẽ xuất hiện sau khi phân tích transcript đàm phán.
+            </div>
+          </div>
         </div>
       </div>
 
@@ -101,6 +122,11 @@
           <span class="icon">🧠</span>
           Effort Multipliers
         </div>
+      </div>
+
+      <div id="slot-tabbar">
+        <button id="tab-em" class="slot-tab active">EM & Scoping</button>
+        <button id="tab-negotiation" class="slot-tab" disabled>Negotiation</button>
       </div>
 
       <div id="slot-progress-wrap">
@@ -303,6 +329,60 @@
           <div class="slot-expand-panel"><div class="slot-evidence-block"><div class="slot-detail-label">💬 Evidence</div><div class="slot-evidence-text">—</div></div><div class="slot-reasoning-block"><div class="slot-detail-label">🧠 Reasoning</div><div class="slot-reasoning-text">—</div></div><div class="slot-adjust-block"><div class="slot-slider-row"><input type="range" class="slot-slider" min="0.00" max="0.05" step="0.01" value="0.00" /><span class="slot-slider-val">0.00</span></div><input type="text" class="slot-reason-input" placeholder="Lý do điều chỉnh (tuỳ chọn)..." /><div class="slot-action-btns"><button class="btn-confirm-em">✅ Đồng ý</button><button class="btn-adjust-em">🔄 Cập nhật</button></div></div></div>
         </div>
       </div>
+
+      <div id="negotiation-controls-panel" hidden>
+        <div class="neg-card">
+          <div class="neg-card-title">🎯 Intent Confirmation</div>
+          <div class="neg-grid-2">
+            <div>
+              <label class="neg-label" for="intent-selected-tier">Selected Tier</label>
+              <select id="intent-selected-tier" class="neg-input">
+                <option value="standard">Standard</option>
+                <option value="basic">Basic</option>
+                <option value="premium">Premium</option>
+              </select>
+            </div>
+            <div>
+              <label class="neg-label" for="intent-client-budget">Client Budget (VND)</label>
+              <input id="intent-client-budget" class="neg-input" type="number" min="0" step="1000000" placeholder="Ví dụ: 300000000" />
+            </div>
+          </div>
+          <div class="neg-meta-row">
+            <span id="intent-confidence" class="neg-chip">Confidence: —</span>
+          </div>
+          <ul id="intent-evidence-list" class="neg-list">
+            <li>Chưa có evidence từ transcript đàm phán.</li>
+          </ul>
+          <button id="btn-confirm-intent" class="neg-action-btn">✅ Confirm Intent</button>
+        </div>
+
+        <div class="neg-card">
+          <div class="neg-card-title">🧩 Trade-off Cards</div>
+          <div id="negotiation-cards-list" class="neg-cards-list">
+            <div class="neg-empty">Chưa có recommendation. Hãy confirm intent trước.</div>
+          </div>
+          <button id="btn-generate-recommendation" class="neg-action-btn" disabled>⚙️ Generate Recommendation</button>
+        </div>
+
+        <div class="neg-card">
+          <div class="neg-card-title">🛡️ Guardrail Status</div>
+          <div id="guardrail-status-panel" class="neg-guardrail-list">
+            <div class="guard-item"><span>Dependency</span><span class="guard-badge pending">PENDING</span></div>
+            <div class="guard-item"><span>Operation</span><span class="guard-badge pending">PENDING</span></div>
+            <div class="guard-item"><span>Contract</span><span class="guard-badge pending">PENDING</span></div>
+            <div class="guard-item"><span>Pricing Integrity</span><span class="guard-badge pending">PENDING</span></div>
+          </div>
+        </div>
+
+        <div class="neg-card">
+          <div class="neg-card-title">📌 Gap Snapshot</div>
+          <div class="neg-summary-grid">
+            <div><span>Target Gap</span><strong id="gap-target">—</strong></div>
+            <div><span>Covered</span><strong id="gap-covered">—</strong></div>
+            <div><span>Residual</span><strong id="gap-residual">—</strong></div>
+          </div>
+        </div>
+      </div>
     </section>
 
     <!-- ──────────────────────────── PANEL 3: PRICE REPORT ─── -->
@@ -370,6 +450,60 @@
               <span>📈</span> Margin Breakdown
             </div>
             <div class="report-card-body" id="margin-items"></div>
+          </div>
+
+          <div class="report-card report-section" id="phase3-quote-section" hidden>
+            <div class="report-card-header">
+              <span>💼</span> Phase 3 - Deal Quotation (3 Tiers)
+            </div>
+            <div class="report-card-body">
+              <div id="base-report-locked" class="phase-lock-note">Base report locked. Negotiation outputs are generated below.</div>
+
+              <div id="tier-quote-grid" class="tier-grid">
+                <div id="quote-tier-basic" class="tier-card">
+                  <div class="tier-name">Basic</div>
+                  <div class="tier-price">—</div>
+                  <ul class="tier-meta" data-role="scope"></ul>
+                  <ul class="tier-meta" data-role="client"></ul>
+                  <ul class="tier-meta" data-role="clause"></ul>
+                </div>
+                <div id="quote-tier-standard" class="tier-card tier-selected">
+                  <div class="tier-name">Standard</div>
+                  <div class="tier-price">—</div>
+                  <ul class="tier-meta" data-role="scope"></ul>
+                  <ul class="tier-meta" data-role="client"></ul>
+                  <ul class="tier-meta" data-role="clause"></ul>
+                </div>
+                <div id="quote-tier-premium" class="tier-card">
+                  <div class="tier-name">Premium</div>
+                  <div class="tier-price">—</div>
+                  <ul class="tier-meta" data-role="scope"></ul>
+                  <ul class="tier-meta" data-role="client"></ul>
+                  <ul class="tier-meta" data-role="clause"></ul>
+                </div>
+              </div>
+
+              <div id="quote-readiness-checklist" class="quote-checklist">
+                <div class="quote-check-item"><span>Intent confirmed</span><span class="check-badge pending">PENDING</span></div>
+                <div class="quote-check-item"><span>Budget confirmed</span><span class="check-badge pending">PENDING</span></div>
+                <div class="quote-check-item"><span>Guardrails passed</span><span class="check-badge pending">PENDING</span></div>
+                <div class="quote-check-item"><span>Residual gap resolved</span><span class="check-badge pending">PENDING</span></div>
+                <div class="quote-check-item"><span>Mandatory clauses acknowledged</span><span class="check-badge pending">PENDING</span></div>
+              </div>
+
+              <label class="clause-ack-wrap">
+                <input id="quote-clause-ack" type="checkbox" />
+                Tôi đã xác nhận toàn bộ điều khoản bắt buộc với pre-sales.
+              </label>
+
+              <div class="quote-residual-box">Residual Gap: <strong id="quote-residual-gap">—</strong></div>
+
+              <div id="quote-playbook" class="quote-playbook">
+                Playbook đàm phán sẽ xuất hiện sau khi generate recommendation.
+              </div>
+
+              <button id="btn-export-quotation" class="quote-export-btn" disabled>📤 Xuất báo giá 3 tiers</button>
+            </div>
           </div>
 
         </div><!-- /report-content -->

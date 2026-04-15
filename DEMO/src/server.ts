@@ -22,6 +22,7 @@ import path from 'path';
 import indexRoute from './routes/index.route';
 import chatRoute from './routes/chat.route';
 import calculatorRoute from './routes/calculator.route';
+import negotiationRoute from './routes/negotiation.route';
 import { loadInternalConfigs } from './config/internal-configs.loader';
 import { loadHeuristicMatrixV2 } from './config/heuristic-v2.loader';
 
@@ -51,6 +52,7 @@ app.use(express.static(path.join(__dirname, '../public')));
 app.use('/api', indexRoute);
 app.use('/api', chatRoute);
 app.use('/api', calculatorRoute);
+app.use('/api', negotiationRoute);
 
 // ─── Fallback: Serve SPA ──────────────────────────────────────────────────────
 
