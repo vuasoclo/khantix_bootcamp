@@ -1,12 +1,12 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="vi">
 
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>KHantix AI CPQ — Intelligent Pricing System</title>
+  <title>KHantix AI CPQ — Hệ thống báo giá thông minh</title>
   <meta name="description"
-    content="KHantix AI CPQ: automates B2B IT pricing by translating technical symptoms into quantified financial risks with full explainability." />
+    content="KHantix AI CPQ: tự động hóa báo giá B2B IT bằng cách chuyển đổi tín hiệu kỹ thuật thành rủi ro tài chính có thể giải trình." />
   <link rel="stylesheet" href="style.css" />
 </head>
 
@@ -21,7 +21,7 @@
     </div>
 
     <div class="header-meta">
-      <span id="session-badge">No session</span>
+      <span id="session-badge">Chưa có phiên</span>
       <div id="provider-badge">
         <span class="status-dot"></span>
         <span id="provider-name">—</span>
@@ -33,12 +33,12 @@
   <main id="workspace">
 
     <!-- ─────────────────────────────── PANEL 1: COPILOT INPUT ─── -->
-    <section class="panel" id="chat-panel" aria-label="Copilot Input">
+    <section class="panel" id="chat-panel" aria-label="Khu vực nhập liệu trợ lý">
 
       <div class="panel-header">
         <div class="panel-title">
           <span class="icon">🎙️</span>
-          Pre-sales Copilot
+          Trợ lý Pre-sales
         </div>
       </div>
 
@@ -50,7 +50,7 @@
             <h4 style="margin: 0; color: var(--accent); font-size: 13px;">Giai đoạn 0: Lọc Hồ Sơ</h4>
             <div style="position: relative;">
               <input type="file" id="profile-file-upload" accept=".md,.txt" style="display:none;" />
-              <button id="btn-upload-profile" style="background: transparent; border: 1px dashed rgba(255,255,255,0.3); color: var(--text-secondary); cursor: pointer; padding: 4px 8px; border-radius: 4px; font-size: 11px;">📄 Upload .md</button>
+              <button id="btn-upload-profile" style="background: transparent; border: 1px dashed rgba(255,255,255,0.3); color: var(--text-secondary); cursor: pointer; padding: 4px 8px; border-radius: 4px; font-size: 11px;">📄 Tải tệp .md</button>
             </div>
           </div>
           <textarea id="profile-input" placeholder="Dán nội dung hồ sơ trước báo giá hoặc upload file .md..." style="width: 100%; min-height: 80px; background: rgba(0,0,0,0.2); border: 1px solid rgba(255,255,255,0.1); color: white; padding: 8px; font-size: 13px; font-family: inherit; resize: vertical; border-radius: 4px;"></textarea>
@@ -66,35 +66,35 @@
               <h4 style="margin: 0; color: #5bc0de; font-size: 13px;">Nạp Transcript (Hiệp <span id="round-counter">1</span>)</h4>
               <div style="position: relative;">
                 <input type="file" id="transcript-file-upload" accept=".md,.txt" style="display:none;" />
-                <button id="btn-upload-transcript" style="background: transparent; border: 1px dashed rgba(255,255,255,0.3); color: var(--text-secondary); cursor: pointer; padding: 4px 8px; border-radius: 4px; font-size: 11px;">📄 Upload .md</button>
+                <button id="btn-upload-transcript" style="background: transparent; border: 1px dashed rgba(255,255,255,0.3); color: var(--text-secondary); cursor: pointer; padding: 4px 8px; border-radius: 4px; font-size: 11px;">📄 Tải tệp .md</button>
               </div>
             </div>
-            <textarea id="transcript-input" placeholder="Paste đoạn chat/voice transcript tại đây..." style="width: 100%; min-height: 100px; background: rgba(0,0,0,0.2); border: 1px solid rgba(255,255,255,0.1); color: white; padding: 8px; font-size: 13px; font-family: inherit; resize: vertical; border-radius: 4px;"></textarea>
+            <textarea id="transcript-input" placeholder="Dán transcript cuộc trao đổi tại đây..." style="width: 100%; min-height: 100px; background: rgba(0,0,0,0.2); border: 1px solid rgba(255,255,255,0.1); color: white; padding: 8px; font-size: 13px; font-family: inherit; resize: vertical; border-radius: 4px;"></textarea>
             <button id="btn-transcript" style="margin-top: 8px; width: 100%; padding: 8px; background: #5bc0de; color: #000; border: none; font-weight: bold; border-radius: 4px; cursor: pointer; transition: all 0.2s;">Phân tích Transcript</button>
           </div>
           
           <!-- Suggestions Area (Expanded flex) -->
           <div class="input-card" style="background: rgba(0,0,0,0.2); border: 1px dashed rgba(255,255,255,0.2); border-radius: 8px; padding: 12px; flex: 1; overflow-y: auto; display: flex; flex-direction: column;">
-            <h4 style="margin: 0 0 12px 0; color: #f0ad4e; font-size: 13px; display: flex; align-items: center; gap: 6px;"><span style="font-size: 16px;">💡</span> Gợi ý cho Pre-sales</h4>
+            <h4 style="margin: 0 0 12px 0; color: #f0ad4e; font-size: 13px; display: flex; align-items: center; gap: 6px;"><span style="font-size: 16px;">💡</span> Gợi ý cho đội ngũ pre-sales</h4>
             <ul id="ai-suggestions" style="margin: 0; padding-left: 20px; font-size: 14px; color: var(--text-secondary); line-height: 1.6; flex: 1;">
               <li>Đợi phân tích hoàn tất để hiển thị gợi ý...</li>
             </ul>
           </div>
           
           <!-- Generate Base Price On-demand -->
-          <button id="btn-base-price" style="margin-top: 8px; padding: 12px; background: var(--risk-low); color: #000; border: none; font-weight: bold; font-size: 14px; border-radius: 4px; cursor: pointer; transition: all 0.2s; box-shadow: 0 4px 12px rgba(81, 207, 102, 0.2);">⚡ Tính Base Price Nhanh</button>
+          <button id="btn-base-price" style="margin-top: 8px; padding: 12px; background: var(--risk-low); color: #000; border: none; font-weight: bold; font-size: 14px; border-radius: 4px; cursor: pointer; transition: all 0.2s; box-shadow: 0 4px 12px rgba(81, 207, 102, 0.2);">⚡ Tính giá cơ sở nhanh</button>
 
           <!-- Enter Phase 3 (shown after Base Report) -->
-          <button id="btn-start-negotiation" hidden style="margin-top: 8px; padding: 12px; background: linear-gradient(135deg, #f0ad4e, #ffcf7a); color: #111; border: none; font-weight: bold; font-size: 14px; border-radius: 4px; cursor: pointer; transition: all 0.2s; box-shadow: 0 4px 12px rgba(240, 173, 78, 0.25);">➡️ Tiếp tục sang Deal Giá (Phase 3)</button>
+          <button id="btn-start-negotiation" hidden style="margin-top: 8px; padding: 12px; background: linear-gradient(135deg, #f0ad4e, #ffcf7a); color: #111; border: none; font-weight: bold; font-size: 14px; border-radius: 4px; cursor: pointer; transition: all 0.2s; box-shadow: 0 4px 12px rgba(240, 173, 78, 0.25);">➡️ Tiếp tục sang đàm phán giá (Giai đoạn 3)</button>
 
           <!-- Phase 3: Negotiation Input -->
           <div id="negotiation-step-container" class="input-card" hidden style="background: rgba(240,173,78,0.06); border: 1px solid rgba(240,173,78,0.35); border-radius: 8px; padding: 12px; display: flex; flex-direction: column; gap: 10px;">
             <h4 style="margin: 0; color: #f0ad4e; font-size: 13px;">Giai đoạn 2N: Đàm phán ngân sách</h4>
-            <textarea id="negotiation-transcript-input" placeholder="Dán hội thoại deal giá giữa khách và pre-sales..." style="width: 100%; min-height: 92px; background: rgba(0,0,0,0.2); border: 1px solid rgba(255,255,255,0.1); color: white; padding: 8px; font-size: 13px; font-family: inherit; resize: vertical; border-radius: 4px;"></textarea>
+            <textarea id="negotiation-transcript-input" placeholder="Dán hội thoại đàm phán giá giữa khách hàng và pre-sales..." style="width: 100%; min-height: 92px; background: rgba(0,0,0,0.2); border: 1px solid rgba(255,255,255,0.1); color: white; padding: 8px; font-size: 13px; font-family: inherit; resize: vertical; border-radius: 4px;"></textarea>
             <button id="btn-negotiation-analyze" style="width: 100%; padding: 8px; background: #f0ad4e; color: #111; border: none; font-weight: bold; border-radius: 4px; cursor: pointer;">Phân tích Ý định đàm phán</button>
 
             <div style="background: rgba(0,0,0,0.2); border: 1px dashed rgba(255,255,255,0.2); border-radius: 8px; padding: 10px;">
-              <div style="margin-bottom: 8px; color: #f0ad4e; font-size: 12px; font-weight: 700;">💡 Gợi ý mớm lời cho Pre-sales</div>
+              <div style="margin-bottom: 8px; color: #f0ad4e; font-size: 12px; font-weight: 700;">💡 Gợi ý trao đổi cho pre-sales</div>
               <ul id="ai-negotiation-suggestions" style="margin: 0; padding-left: 18px; font-size: 13px; color: var(--text-secondary); line-height: 1.5;">
                 <li>Chưa có phân tích đàm phán.</li>
               </ul>
@@ -110,49 +110,49 @@
       <!-- Compact Status Footer -->
       <div id="inline-status-bar" style="background: rgba(0,0,0,0.4); padding: 8px 12px; border-top: 1px solid rgba(255,255,255,0.05); font-size: 12px; color: var(--text-muted); display: flex; align-items: center; gap: 8px;">
         <span id="inline-status-icon">⚪</span>
-        <span id="inline-status-text">Ready. Please complete Phase 0.</span>
+        <span id="inline-status-text">Sẵn sàng. Vui lòng hoàn thành Giai đoạn 0.</span>
       </div>
     </section>
 
     <!-- ──────────────────────────── PANEL 2: EM TRACKER ─── -->
-    <section class="panel" id="slot-panel" aria-label="COCOMO Effort Multipliers">
+    <section class="panel" id="slot-panel" aria-label="Hệ số nỗ lực COCOMO">
 
       <div class="panel-header">
         <div class="panel-title">
           <span class="icon">🧠</span>
-          Effort Multipliers
+          Hệ số nỗ lực
         </div>
       </div>
 
       <div id="slot-tabbar">
         <button id="tab-em" class="slot-tab active">EM & Scoping</button>
-        <button id="tab-negotiation" class="slot-tab" disabled>Negotiation</button>
+        <button id="tab-negotiation" class="slot-tab" disabled>Đàm phán</button>
       </div>
 
       <div id="slot-progress-wrap">
         <div class="progress-label">
-          <span>EMs estimated</span>
+          <span>EM đã ước tính</span>
           <span id="progress-count">0 / 12</span>
         </div>
         <div class="progress-bar-track">
           <div id="progress-bar-fill" role="progressbar" aria-valuenow="0" aria-valuemin="0" aria-valuemax="12"></div>
         </div>
         <div id="compound-display" style="margin-top:6px;font-size:11px;color:var(--text-secondary);text-align:right;">
-          Compound: ×1.000 (+0.0%)
+          Hệ số gộp: ×1.000 (+0.0%)
         </div>
       </div>
 
       <div id="slot-cards">
         <!-- Project Scoping Group (AI Matches) -->
-        <div class="slot-group-label" style="color: var(--blue-accent);">S — Project Scoping</div>
+        <div class="slot-group-label" style="color: var(--blue-accent);">S — Phạm vi dự án</div>
         
         <!-- Matched Modules -->
         <div class="slot-card" id="slot-scope-modules" data-scope="matchedModules" data-status="empty">
-          <div class="slot-card-header"><span class="slot-icon">🧩</span><div class="slot-content"><div class="slot-name">Matched Modules</div><div class="slot-value" id="modules-value">—</div><div class="slot-confidence"></div></div><span class="slot-indicator"></span></div>
+          <div class="slot-card-header"><span class="slot-icon">🧩</span><div class="slot-content"><div class="slot-name">Mô-đun khớp</div><div class="slot-value" id="modules-value">—</div><div class="slot-confidence"></div></div><span class="slot-indicator"></span></div>
           <div class="slot-expand-panel">
-            <div class="slot-reasoning-block"><div class="slot-detail-label">🧠 Recognized Modules</div><div class="slot-reasoning-text" id="modules-reasoning-text">—</div></div>
+            <div class="slot-reasoning-block"><div class="slot-detail-label">🧠 Mô-đun được nhận diện</div><div class="slot-reasoning-text" id="modules-reasoning-text">—</div></div>
             <div class="slot-adjust-block">
-              <div style="font-size: 11px; margin-bottom: 8px; color: var(--text-secondary)">Thêm/Sửa Modules (Cập nhật ở đây sẽ tính lại Role Allocation):</div>
+              <div style="font-size: 11px; margin-bottom: 8px; color: var(--text-secondary)">Thêm/Sửa mô-đun (cập nhật tại đây sẽ tính lại phân bổ vai trò):</div>
               <div id="modules-edit-list" style="display: flex; flex-direction: column; gap: 8px; margin-bottom: 8px;">
                 <!-- dynamic blocks here -->
               </div>
@@ -167,11 +167,11 @@
 
         <!-- Role Allocation -->
         <div class="slot-card" id="slot-scope-roles" data-scope="roleAllocation" data-status="empty">
-          <div class="slot-card-header"><span class="slot-icon">👥</span><div class="slot-content"><div class="slot-name">Role Allocation</div><div class="slot-value" id="roles-value">—</div><div class="slot-confidence"></div></div><span class="slot-indicator"></span></div>
+          <div class="slot-card-header"><span class="slot-icon">👥</span><div class="slot-content"><div class="slot-name">Phân bổ vai trò</div><div class="slot-value" id="roles-value">—</div><div class="slot-confidence"></div></div><span class="slot-indicator"></span></div>
           <div class="slot-expand-panel">
-            <div class="slot-reasoning-block"><div class="slot-detail-label">🧠 Effort Distribution</div><div class="slot-reasoning-text" id="roles-reasoning-text">—</div></div>
+            <div class="slot-reasoning-block"><div class="slot-detail-label">🧠 Phân bổ nguồn lực</div><div class="slot-reasoning-text" id="roles-reasoning-text">—</div></div>
             <div class="slot-adjust-block">
-              <div style="font-size: 11px; margin-bottom: 8px;">Edit Man-Days:</div>
+              <div style="font-size: 11px; margin-bottom: 8px;">Điều chỉnh số ngày công:</div>
               <div style="display: flex; gap: 4px; align-items: center; margin-bottom: 4px;">
                 <label style="width: 40px; font-size:10px;">Senior</label><input type="number" id="inp-role-senior" style="flex:1; background: rgba(0,0,0,0.3); border: 1px solid rgba(255,255,255,0.1); color: white; padding: 4px; border-radius: 4px;" value="0"/>
                 <label style="width: 40px; font-size:10px;">Junior</label><input type="number" id="inp-role-junior" style="flex:1; background: rgba(0,0,0,0.3); border: 1px solid rgba(255,255,255,0.1); color: white; padding: 4px; border-radius: 4px;" value="0"/>
@@ -187,10 +187,10 @@
 
         <!-- User Count -->
         <div class="slot-card" id="slot-scope-users" data-scope="userCount" data-status="empty">
-          <div class="slot-card-header"><span class="slot-icon">🌐</span><div class="slot-content"><div class="slot-name">User Count</div><div class="slot-value" id="users-value">—</div><div class="slot-confidence" id="users-conf"></div></div><span class="slot-indicator"></span></div>
+          <div class="slot-card-header"><span class="slot-icon">🌐</span><div class="slot-content"><div class="slot-name">Số lượng người dùng</div><div class="slot-value" id="users-value">—</div><div class="slot-confidence" id="users-conf"></div></div><span class="slot-indicator"></span></div>
           <div class="slot-expand-panel">
-            <div class="slot-evidence-block"><div class="slot-detail-label">💬 Evidence</div><div class="slot-evidence-text" id="users-evidence-text">—</div></div>
-            <div class="slot-reasoning-block"><div class="slot-detail-label">🧠 Reasoning</div><div class="slot-reasoning-text" id="users-reasoning-text">—</div></div>
+            <div class="slot-evidence-block"><div class="slot-detail-label">💬 Bằng chứng</div><div class="slot-evidence-text" id="users-evidence-text">—</div></div>
+            <div class="slot-reasoning-block"><div class="slot-detail-label">🧠 Lập luận</div><div class="slot-reasoning-text" id="users-reasoning-text">—</div></div>
             <div class="slot-adjust-block">
               <input type="number" id="inp-usercount" placeholder="Số lượng user..." style="width:100%; background: rgba(0,0,0,0.3); border: 1px solid rgba(255,255,255,0.1); color: white; padding: 6px; border-radius: 4px; margin-bottom: 8px;" />
               <div class="slot-action-btns"><button class="btn-confirm-em">✅ Đồng ý</button><button class="btn-adjust-em">🔄 Cập nhật</button></div>
@@ -200,16 +200,16 @@
 
         <!-- Data Risk Group -->
         <!-- INFRASTRUCTURE REQUIREMENTS -->
-        <div class="slot-group-label" style="color: var(--risk-medium); margin-top: 12px;">☁️ — Cloud Infrastructure</div>
+        <div class="slot-group-label" style="color: var(--risk-medium); margin-top: 12px;">☁️ — Hạ tầng đám mây</div>
 
         <!-- Concurrent Users -->
         <div class="slot-card" id="slot-infra-concurrent" data-scope="concurrent_users" data-status="empty">
-          <div class="slot-card-header"><span class="slot-icon">🚦</span><div class="slot-content"><div class="slot-name">Concurrent Users (CCU)</div><div class="slot-value" id="concurrent_users-value">—</div><div class="slot-confidence" id="concurrent_users-conf"></div></div><span class="slot-indicator"></span></div>
+          <div class="slot-card-header"><span class="slot-icon">🚦</span><div class="slot-content"><div class="slot-name">Người dùng đồng thời (CCU)</div><div class="slot-value" id="concurrent_users-value">—</div><div class="slot-confidence" id="concurrent_users-conf"></div></div><span class="slot-indicator"></span></div>
           <div class="slot-expand-panel">
-            <div class="slot-evidence-block"><div class="slot-detail-label">💬 Evidence</div><div class="slot-evidence-text" id="concurrent_users-evidence-text">—</div></div>
-            <div class="slot-reasoning-block"><div class="slot-detail-label">🧠 Reasoning</div><div class="slot-reasoning-text" id="concurrent_users-reasoning-text">—</div></div>
+            <div class="slot-evidence-block"><div class="slot-detail-label">💬 Bằng chứng</div><div class="slot-evidence-text" id="concurrent_users-evidence-text">—</div></div>
+            <div class="slot-reasoning-block"><div class="slot-detail-label">🧠 Lập luận</div><div class="slot-reasoning-text" id="concurrent_users-reasoning-text">—</div></div>
             <div class="slot-adjust-block">
-              <div style="font-size: 11px; margin-bottom: 8px;">Override Max Concurrent Users:</div>
+              <div style="font-size: 11px; margin-bottom: 8px;">Điều chỉnh số người dùng đồng thời tối đa:</div>
               <input type="number" id="inp-concurrent-users" style="width: 100%; background: rgba(0,0,0,0.3); border: 1px solid rgba(255,255,255,0.1); color: white; padding: 6px; border-radius: 4px;" placeholder="Ví dụ: 50" min="1"/>
               <div style="font-size: 10px; color: var(--text-muted); margin-top: 4px;">* Mặc định = 10% tổng số User nếu AI không bóc tách được.</div>
               <div class="slot-action-btns">
@@ -222,18 +222,18 @@
 
         <!-- Storage GB -->
         <div class="slot-card" id="slot-infra-storage" data-scope="expected_storage_gb" data-status="empty">
-          <div class="slot-card-header"><span class="slot-icon">💽</span><div class="slot-content"><div class="slot-name">Storage Expected (GB)</div><div class="slot-value" id="expected_storage_gb-value">—</div><div class="slot-confidence" id="expected_storage_gb-conf"></div></div><span class="slot-indicator"></span></div>
+          <div class="slot-card-header"><span class="slot-icon">💽</span><div class="slot-content"><div class="slot-name">Dung lượng lưu trữ dự kiến (GB)</div><div class="slot-value" id="expected_storage_gb-value">—</div><div class="slot-confidence" id="expected_storage_gb-conf"></div></div><span class="slot-indicator"></span></div>
           <div class="slot-expand-panel">
-            <div class="slot-evidence-block"><div class="slot-detail-label">💬 Evidence</div><div class="slot-evidence-text" id="expected_storage_gb-evidence-text">—</div></div>
-            <div class="slot-reasoning-block"><div class="slot-detail-label">🧠 Reasoning</div><div class="slot-reasoning-text" id="expected_storage_gb-reasoning-text">—</div></div>
+            <div class="slot-evidence-block"><div class="slot-detail-label">💬 Bằng chứng</div><div class="slot-evidence-text" id="expected_storage_gb-evidence-text">—</div></div>
+            <div class="slot-reasoning-block"><div class="slot-detail-label">🧠 Lập luận</div><div class="slot-reasoning-text" id="expected_storage_gb-reasoning-text">—</div></div>
             <div class="slot-adjust-block">
-              <div style="font-size: 11px; margin-bottom: 8px;">Override Storage (GB/Month):</div>
+              <div style="font-size: 11px; margin-bottom: 8px;">Điều chỉnh dung lượng lưu trữ (GB/tháng):</div>
               <div style="display: flex; gap: 8px; margin-bottom: 8px;">
                 <select id="sel-storage-preset" style="flex: 1; background: rgba(0,0,0,0.3); border: 1px solid rgba(255,255,255,0.1); color: white; padding: 6px; border-radius: 4px; font-size: 12px;">
                   <option value="">-- Mức suy luận tự động --</option>
-                  <option value="10">Text & Database (~10GB)</option>
-                  <option value="100">Document & Hình ảnh (~100GB)</option>
-                  <option value="500">Video & Audio (~500GB+)</option>
+                  <option value="10">Văn bản & Cơ sở dữ liệu (~10GB)</option>
+                  <option value="100">Tài liệu & Hình ảnh (~100GB)</option>
+                  <option value="500">Video & Âm thanh (~500GB+)</option>
                 </select>
                 <input type="number" id="inp-storage-gb" style="width: 80px; background: rgba(0,0,0,0.3); border: 1px solid rgba(255,255,255,0.1); color: white; padding: 6px; border-radius: 4px;" placeholder="GB" min="1"/>
               </div>
@@ -248,15 +248,15 @@
 
         <!-- High Availability -->
         <div class="slot-card" id="slot-infra-ha" data-scope="requires_high_availability" data-status="empty">
-          <div class="slot-card-header"><span class="slot-icon">🛡️</span><div class="slot-content"><div class="slot-name">High Availability (SLA)</div><div class="slot-value" id="requires_high_availability-value">—</div><div class="slot-confidence" id="requires_high_availability-conf"></div></div><span class="slot-indicator"></span></div>
+          <div class="slot-card-header"><span class="slot-icon">🛡️</span><div class="slot-content"><div class="slot-name">Độ sẵn sàng cao (SLA)</div><div class="slot-value" id="requires_high_availability-value">—</div><div class="slot-confidence" id="requires_high_availability-conf"></div></div><span class="slot-indicator"></span></div>
           <div class="slot-expand-panel">
-            <div class="slot-evidence-block"><div class="slot-detail-label">💬 Evidence</div><div class="slot-evidence-text" id="requires_high_availability-evidence-text">—</div></div>
-            <div class="slot-reasoning-block"><div class="slot-detail-label">🧠 Reasoning</div><div class="slot-reasoning-text" id="requires_high_availability-reasoning-text">—</div></div>
+            <div class="slot-evidence-block"><div class="slot-detail-label">💬 Bằng chứng</div><div class="slot-evidence-text" id="requires_high_availability-evidence-text">—</div></div>
+            <div class="slot-reasoning-block"><div class="slot-detail-label">🧠 Lập luận</div><div class="slot-reasoning-text" id="requires_high_availability-reasoning-text">—</div></div>
             <div class="slot-adjust-block">
               <div style="font-size: 11px; margin-bottom: 8px;">Yêu cầu độ sẵn sàng cao (Chống sập mạng):</div>
               <label style="display: flex; align-items: center; gap: 8px; font-size: 13px; color: white; cursor: pointer;">
                 <input type="checkbox" id="chk-high-availability" style="width: 16px; height: 16px;" />
-                Kích hoạt Multi-Zone & Load Balancer
+                Kích hoạt đa vùng (Multi-Zone) và cân bằng tải (Load Balancer)
               </label>
               <div style="font-size: 10px; color: var(--risk-high); margin-top: 6px; font-style: italic;">* Cảnh báo: Tăng x1.5 lần tổng chi phí Server duy trì.</div>
               <div class="slot-action-btns" style="margin-top: 12px;">
@@ -267,131 +267,105 @@
           </div>
         </div>
 
-        <div class="slot-group-label" style="margin-top: 12px;">D — Data Risk</div>
+        <div class="slot-group-label" style="margin-top: 12px;">D — Rủi ro dữ liệu</div>
         <div class="slot-card" id="slot-EM_D1" data-em="EM_D1" data-status="empty">
-          <div class="slot-card-header"><span class="slot-icon">📄</span><div class="slot-content"><div class="slot-name">Data Format</div><div class="slot-value">—</div><div class="slot-confidence"></div></div><span class="slot-indicator"></span></div>
-          <div class="slot-expand-panel"><div class="slot-evidence-block"><div class="slot-detail-label">💬 Evidence</div><div class="slot-evidence-text">—</div></div><div class="slot-reasoning-block"><div class="slot-detail-label">🧠 Reasoning</div><div class="slot-reasoning-text">—</div></div><div class="slot-adjust-block"><div class="slot-slider-row"><input type="range" class="slot-slider" min="1.00" max="1.20" step="0.01" value="1.00" /><span class="slot-slider-val">1.00</span></div><input type="text" class="slot-reason-input" placeholder="Lý do điều chỉnh (tuỳ chọn)..." /><div class="slot-action-btns"><button class="btn-confirm-em">✅ Đồng ý</button><button class="btn-adjust-em">🔄 Cập nhật</button></div></div></div>
+          <div class="slot-card-header"><span class="slot-icon">📄</span><div class="slot-content"><div class="slot-name">Định dạng dữ liệu</div><div class="slot-value">—</div><div class="slot-confidence"></div></div><span class="slot-indicator"></span></div>
+          <div class="slot-expand-panel"><div class="slot-evidence-block"><div class="slot-detail-label">💬 Bằng chứng</div><div class="slot-evidence-text">—</div></div><div class="slot-reasoning-block"><div class="slot-detail-label">🧠 Lập luận</div><div class="slot-reasoning-text">—</div></div><div class="slot-adjust-block"><div class="slot-slider-row"><input type="range" class="slot-slider" min="1.00" max="1.20" step="0.01" value="1.00" /><span class="slot-slider-val">1.00</span></div><input type="text" class="slot-reason-input" placeholder="Lý do điều chỉnh (tuỳ chọn)..." /><div class="slot-action-btns"><button class="btn-confirm-em">✅ Đồng ý</button><button class="btn-adjust-em">🔄 Cập nhật</button></div></div></div>
         </div>
         <div class="slot-card" id="slot-EM_D2" data-em="EM_D2" data-status="empty">
-          <div class="slot-card-header"><span class="slot-icon">📊</span><div class="slot-content"><div class="slot-name">Data Volume</div><div class="slot-value">—</div><div class="slot-confidence"></div></div><span class="slot-indicator"></span></div>
-          <div class="slot-expand-panel"><div class="slot-evidence-block"><div class="slot-detail-label">💬 Evidence</div><div class="slot-evidence-text">—</div></div><div class="slot-reasoning-block"><div class="slot-detail-label">🧠 Reasoning</div><div class="slot-reasoning-text">—</div></div><div class="slot-adjust-block"><div class="slot-slider-row"><input type="range" class="slot-slider" min="1.00" max="1.25" step="0.01" value="1.00" /><span class="slot-slider-val">1.00</span></div><input type="text" class="slot-reason-input" placeholder="Lý do điều chỉnh (tuỳ chọn)..." /><div class="slot-action-btns"><button class="btn-confirm-em">✅ Đồng ý</button><button class="btn-adjust-em">🔄 Cập nhật</button></div></div></div>
+          <div class="slot-card-header"><span class="slot-icon">📊</span><div class="slot-content"><div class="slot-name">Khối lượng dữ liệu</div><div class="slot-value">—</div><div class="slot-confidence"></div></div><span class="slot-indicator"></span></div>
+          <div class="slot-expand-panel"><div class="slot-evidence-block"><div class="slot-detail-label">💬 Bằng chứng</div><div class="slot-evidence-text">—</div></div><div class="slot-reasoning-block"><div class="slot-detail-label">🧠 Lập luận</div><div class="slot-reasoning-text">—</div></div><div class="slot-adjust-block"><div class="slot-slider-row"><input type="range" class="slot-slider" min="1.00" max="1.25" step="0.01" value="1.00" /><span class="slot-slider-val">1.00</span></div><input type="text" class="slot-reason-input" placeholder="Lý do điều chỉnh (tuỳ chọn)..." /><div class="slot-action-btns"><button class="btn-confirm-em">✅ Đồng ý</button><button class="btn-adjust-em">🔄 Cập nhật</button></div></div></div>
         </div>
         <div class="slot-card" id="slot-EM_D3" data-em="EM_D3" data-status="empty">
-          <div class="slot-card-header"><span class="slot-icon">🧹</span><div class="slot-content"><div class="slot-name">Data Integrity</div><div class="slot-value">—</div><div class="slot-confidence"></div></div><span class="slot-indicator"></span></div>
-          <div class="slot-expand-panel"><div class="slot-evidence-block"><div class="slot-detail-label">💬 Evidence</div><div class="slot-evidence-text">—</div></div><div class="slot-reasoning-block"><div class="slot-detail-label">🧠 Reasoning</div><div class="slot-reasoning-text">—</div></div><div class="slot-adjust-block"><div class="slot-slider-row"><input type="range" class="slot-slider" min="1.00" max="1.15" step="0.01" value="1.00" /><span class="slot-slider-val">1.00</span></div><input type="text" class="slot-reason-input" placeholder="Lý do điều chỉnh (tuỳ chọn)..." /><div class="slot-action-btns"><button class="btn-confirm-em">✅ Đồng ý</button><button class="btn-adjust-em">🔄 Cập nhật</button></div></div></div>
+          <div class="slot-card-header"><span class="slot-icon">🧹</span><div class="slot-content"><div class="slot-name">Độ toàn vẹn dữ liệu</div><div class="slot-value">—</div><div class="slot-confidence"></div></div><span class="slot-indicator"></span></div>
+          <div class="slot-expand-panel"><div class="slot-evidence-block"><div class="slot-detail-label">💬 Bằng chứng</div><div class="slot-evidence-text">—</div></div><div class="slot-reasoning-block"><div class="slot-detail-label">🧠 Lập luận</div><div class="slot-reasoning-text">—</div></div><div class="slot-adjust-block"><div class="slot-slider-row"><input type="range" class="slot-slider" min="1.00" max="1.15" step="0.01" value="1.00" /><span class="slot-slider-val">1.00</span></div><input type="text" class="slot-reason-input" placeholder="Lý do điều chỉnh (tuỳ chọn)..." /><div class="slot-action-btns"><button class="btn-confirm-em">✅ Đồng ý</button><button class="btn-adjust-em">🔄 Cập nhật</button></div></div></div>
         </div>
 
         <!-- Integration Risk Group -->
-        <div class="slot-group-label">I — Integration Risk</div>
+        <div class="slot-group-label">I — Rủi ro tích hợp</div>
         <div class="slot-card" id="slot-EM_I1" data-em="EM_I1" data-status="empty">
-          <div class="slot-card-header"><span class="slot-icon">🔌</span><div class="slot-content"><div class="slot-name">API Availability</div><div class="slot-value">—</div><div class="slot-confidence"></div></div><span class="slot-indicator"></span></div>
-          <div class="slot-expand-panel"><div class="slot-evidence-block"><div class="slot-detail-label">💬 Evidence</div><div class="slot-evidence-text">—</div></div><div class="slot-reasoning-block"><div class="slot-detail-label">🧠 Reasoning</div><div class="slot-reasoning-text">—</div></div><div class="slot-adjust-block"><div class="slot-slider-row"><input type="range" class="slot-slider" min="1.00" max="1.20" step="0.01" value="1.00" /><span class="slot-slider-val">1.00</span></div><input type="text" class="slot-reason-input" placeholder="Lý do điều chỉnh (tuỳ chọn)..." /><div class="slot-action-btns"><button class="btn-confirm-em">✅ Đồng ý</button><button class="btn-adjust-em">🔄 Cập nhật</button></div></div></div>
+          <div class="slot-card-header"><span class="slot-icon">🔌</span><div class="slot-content"><div class="slot-name">Khả năng sẵn sàng API</div><div class="slot-value">—</div><div class="slot-confidence"></div></div><span class="slot-indicator"></span></div>
+          <div class="slot-expand-panel"><div class="slot-evidence-block"><div class="slot-detail-label">💬 Bằng chứng</div><div class="slot-evidence-text">—</div></div><div class="slot-reasoning-block"><div class="slot-detail-label">🧠 Lập luận</div><div class="slot-reasoning-text">—</div></div><div class="slot-adjust-block"><div class="slot-slider-row"><input type="range" class="slot-slider" min="1.00" max="1.20" step="0.01" value="1.00" /><span class="slot-slider-val">1.00</span></div><input type="text" class="slot-reason-input" placeholder="Lý do điều chỉnh (tuỳ chọn)..." /><div class="slot-action-btns"><button class="btn-confirm-em">✅ Đồng ý</button><button class="btn-adjust-em">🔄 Cập nhật</button></div></div></div>
         </div>
         <div class="slot-card" id="slot-EM_I2" data-em="EM_I2" data-status="empty">
-          <div class="slot-card-header"><span class="slot-icon">🏚️</span><div class="slot-content"><div class="slot-name">Legacy System Age</div><div class="slot-value">—</div><div class="slot-confidence"></div></div><span class="slot-indicator"></span></div>
-          <div class="slot-expand-panel"><div class="slot-evidence-block"><div class="slot-detail-label">💬 Evidence</div><div class="slot-evidence-text">—</div></div><div class="slot-reasoning-block"><div class="slot-detail-label">🧠 Reasoning</div><div class="slot-reasoning-text">—</div></div><div class="slot-adjust-block"><div class="slot-slider-row"><input type="range" class="slot-slider" min="1.00" max="1.15" step="0.01" value="1.00" /><span class="slot-slider-val">1.00</span></div><input type="text" class="slot-reason-input" placeholder="Lý do điều chỉnh (tuỳ chọn)..." /><div class="slot-action-btns"><button class="btn-confirm-em">✅ Đồng ý</button><button class="btn-adjust-em">🔄 Cập nhật</button></div></div></div>
+          <div class="slot-card-header"><span class="slot-icon">🏚️</span><div class="slot-content"><div class="slot-name">Mức độ cũ của hệ thống hiện hữu</div><div class="slot-value">—</div><div class="slot-confidence"></div></div><span class="slot-indicator"></span></div>
+          <div class="slot-expand-panel"><div class="slot-evidence-block"><div class="slot-detail-label">💬 Bằng chứng</div><div class="slot-evidence-text">—</div></div><div class="slot-reasoning-block"><div class="slot-detail-label">🧠 Lập luận</div><div class="slot-reasoning-text">—</div></div><div class="slot-adjust-block"><div class="slot-slider-row"><input type="range" class="slot-slider" min="1.00" max="1.15" step="0.01" value="1.00" /><span class="slot-slider-val">1.00</span></div><input type="text" class="slot-reason-input" placeholder="Lý do điều chỉnh (tuỳ chọn)..." /><div class="slot-action-btns"><button class="btn-confirm-em">✅ Đồng ý</button><button class="btn-adjust-em">🔄 Cập nhật</button></div></div></div>
         </div>
 
         <!-- Training Risk Group -->
-        <div class="slot-group-label">T — Training Risk</div>
+        <div class="slot-group-label">T — Rủi ro đào tạo</div>
         <div class="slot-card" id="slot-EM_T1" data-em="EM_T1" data-status="empty">
-          <div class="slot-card-header"><span class="slot-icon">👴</span><div class="slot-content"><div class="slot-name">Change Resistance</div><div class="slot-value">—</div><div class="slot-confidence"></div></div><span class="slot-indicator"></span></div>
-          <div class="slot-expand-panel"><div class="slot-evidence-block"><div class="slot-detail-label">💬 Evidence</div><div class="slot-evidence-text">—</div></div><div class="slot-reasoning-block"><div class="slot-detail-label">🧠 Reasoning</div><div class="slot-reasoning-text">—</div></div><div class="slot-adjust-block"><div class="slot-slider-row"><input type="range" class="slot-slider" min="1.00" max="1.15" step="0.01" value="1.00" /><span class="slot-slider-val">1.00</span></div><input type="text" class="slot-reason-input" placeholder="Lý do điều chỉnh (tuỳ chọn)..." /><div class="slot-action-btns"><button class="btn-confirm-em">✅ Đồng ý</button><button class="btn-adjust-em">🔄 Cập nhật</button></div></div></div>
+          <div class="slot-card-header"><span class="slot-icon">👴</span><div class="slot-content"><div class="slot-name">Mức độ kháng cự thay đổi</div><div class="slot-value">—</div><div class="slot-confidence"></div></div><span class="slot-indicator"></span></div>
+          <div class="slot-expand-panel"><div class="slot-evidence-block"><div class="slot-detail-label">💬 Bằng chứng</div><div class="slot-evidence-text">—</div></div><div class="slot-reasoning-block"><div class="slot-detail-label">🧠 Lập luận</div><div class="slot-reasoning-text">—</div></div><div class="slot-adjust-block"><div class="slot-slider-row"><input type="range" class="slot-slider" min="1.00" max="1.15" step="0.01" value="1.00" /><span class="slot-slider-val">1.00</span></div><input type="text" class="slot-reason-input" placeholder="Lý do điều chỉnh (tuỳ chọn)..." /><div class="slot-action-btns"><button class="btn-confirm-em">✅ Đồng ý</button><button class="btn-adjust-em">🔄 Cập nhật</button></div></div></div>
         </div>
         <div class="slot-card" id="slot-EM_T2" data-em="EM_T2" data-status="empty">
-          <div class="slot-card-header"><span class="slot-icon">👩‍🏫</span><div class="slot-content"><div class="slot-name">Prior System Exp</div><div class="slot-value">—</div><div class="slot-confidence"></div></div><span class="slot-indicator"></span></div>
-          <div class="slot-expand-panel"><div class="slot-evidence-block"><div class="slot-detail-label">💬 Evidence</div><div class="slot-evidence-text">—</div></div><div class="slot-reasoning-block"><div class="slot-detail-label">🧠 Reasoning</div><div class="slot-reasoning-text">—</div></div><div class="slot-adjust-block"><div class="slot-slider-row"><input type="range" class="slot-slider" min="1.00" max="1.10" step="0.01" value="1.00" /><span class="slot-slider-val">1.00</span></div><input type="text" class="slot-reason-input" placeholder="Lý do điều chỉnh (tuỳ chọn)..." /><div class="slot-action-btns"><button class="btn-confirm-em">✅ Đồng ý</button><button class="btn-adjust-em">🔄 Cập nhật</button></div></div></div>
+          <div class="slot-card-header"><span class="slot-icon">👩‍🏫</span><div class="slot-content"><div class="slot-name">Kinh nghiệm dùng hệ thống trước đó</div><div class="slot-value">—</div><div class="slot-confidence"></div></div><span class="slot-indicator"></span></div>
+          <div class="slot-expand-panel"><div class="slot-evidence-block"><div class="slot-detail-label">💬 Bằng chứng</div><div class="slot-evidence-text">—</div></div><div class="slot-reasoning-block"><div class="slot-detail-label">🧠 Lập luận</div><div class="slot-reasoning-text">—</div></div><div class="slot-adjust-block"><div class="slot-slider-row"><input type="range" class="slot-slider" min="1.00" max="1.10" step="0.01" value="1.00" /><span class="slot-slider-val">1.00</span></div><input type="text" class="slot-reason-input" placeholder="Lý do điều chỉnh (tuỳ chọn)..." /><div class="slot-action-btns"><button class="btn-confirm-em">✅ Đồng ý</button><button class="btn-adjust-em">🔄 Cập nhật</button></div></div></div>
         </div>
 
         <!-- Base Cost Group -->
-        <div class="slot-group-label">B — Base Cost</div>
+        <div class="slot-group-label">B — Chi phí cơ sở</div>
         <div class="slot-card" id="slot-EM_B1" data-em="EM_B1" data-status="empty">
-          <div class="slot-card-header"><span class="slot-icon">📍</span><div class="slot-content"><div class="slot-name">Deployment Loc.</div><div class="slot-value">—</div><div class="slot-confidence"></div></div><span class="slot-indicator"></span></div>
-          <div class="slot-expand-panel"><div class="slot-evidence-block"><div class="slot-detail-label">💬 Evidence</div><div class="slot-evidence-text">—</div></div><div class="slot-reasoning-block"><div class="slot-detail-label">🧠 Reasoning</div><div class="slot-reasoning-text">—</div></div><div class="slot-adjust-block"><div class="slot-slider-row"><input type="range" class="slot-slider" min="1.00" max="1.30" step="0.01" value="1.00" /><span class="slot-slider-val">1.00</span></div><input type="text" class="slot-reason-input" placeholder="Lý do điều chỉnh (tuỳ chọn)..." /><div class="slot-action-btns"><button class="btn-confirm-em">✅ Đồng ý</button><button class="btn-adjust-em">🔄 Cập nhật</button></div></div></div>
+          <div class="slot-card-header"><span class="slot-icon">📍</span><div class="slot-content"><div class="slot-name">Hình thức triển khai</div><div class="slot-value">—</div><div class="slot-confidence"></div></div><span class="slot-indicator"></span></div>
+          <div class="slot-expand-panel"><div class="slot-evidence-block"><div class="slot-detail-label">💬 Bằng chứng</div><div class="slot-evidence-text">—</div></div><div class="slot-reasoning-block"><div class="slot-detail-label">🧠 Lập luận</div><div class="slot-reasoning-text">—</div></div><div class="slot-adjust-block"><div class="slot-slider-row"><input type="range" class="slot-slider" min="1.00" max="1.30" step="0.01" value="1.00" /><span class="slot-slider-val">1.00</span></div><input type="text" class="slot-reason-input" placeholder="Lý do điều chỉnh (tuỳ chọn)..." /><div class="slot-action-btns"><button class="btn-confirm-em">✅ Đồng ý</button><button class="btn-adjust-em">🔄 Cập nhật</button></div></div></div>
         </div>
         <div class="slot-card" id="slot-EM_B2" data-em="EM_B2" data-status="empty">
-          <div class="slot-card-header"><span class="slot-icon">🖥️</span><div class="slot-content"><div class="slot-name">HW Dependency</div><div class="slot-value">—</div><div class="slot-confidence"></div></div><span class="slot-indicator"></span></div>
-          <div class="slot-expand-panel"><div class="slot-evidence-block"><div class="slot-detail-label">💬 Evidence</div><div class="slot-evidence-text">—</div></div><div class="slot-reasoning-block"><div class="slot-detail-label">🧠 Reasoning</div><div class="slot-reasoning-text">—</div></div><div class="slot-adjust-block"><div class="slot-slider-row"><input type="range" class="slot-slider" min="1.00" max="1.15" step="0.01" value="1.00" /><span class="slot-slider-val">1.00</span></div><input type="text" class="slot-reason-input" placeholder="Lý do điều chỉnh (tuỳ chọn)..." /><div class="slot-action-btns"><button class="btn-confirm-em">✅ Đồng ý</button><button class="btn-adjust-em">🔄 Cập nhật</button></div></div></div>
+          <div class="slot-card-header"><span class="slot-icon">🖥️</span><div class="slot-content"><div class="slot-name">Phụ thuộc hạ tầng phần cứng</div><div class="slot-value">—</div><div class="slot-confidence"></div></div><span class="slot-indicator"></span></div>
+          <div class="slot-expand-panel"><div class="slot-evidence-block"><div class="slot-detail-label">💬 Bằng chứng</div><div class="slot-evidence-text">—</div></div><div class="slot-reasoning-block"><div class="slot-detail-label">🧠 Lập luận</div><div class="slot-reasoning-text">—</div></div><div class="slot-adjust-block"><div class="slot-slider-row"><input type="range" class="slot-slider" min="1.00" max="1.15" step="0.01" value="1.00" /><span class="slot-slider-val">1.00</span></div><input type="text" class="slot-reason-input" placeholder="Lý do điều chỉnh (tuỳ chọn)..." /><div class="slot-action-btns"><button class="btn-confirm-em">✅ Đồng ý</button><button class="btn-adjust-em">🔄 Cập nhật</button></div></div></div>
         </div>
 
         <!-- Commercial Group -->
-        <div class="slot-group-label">C — Commercial</div>
+        <div class="slot-group-label">C — Thương mại</div>
         <div class="slot-card" id="slot-EM_C1" data-em="EM_C1" data-status="empty">
-          <div class="slot-card-header"><span class="slot-icon">⚡</span><div class="slot-content"><div class="slot-name">Rush Factor</div><div class="slot-value">—</div><div class="slot-confidence"></div></div><span class="slot-indicator"></span></div>
-          <div class="slot-expand-panel"><div class="slot-evidence-block"><div class="slot-detail-label">💬 Evidence</div><div class="slot-evidence-text">—</div></div><div class="slot-reasoning-block"><div class="slot-detail-label">🧠 Reasoning</div><div class="slot-reasoning-text">—</div></div><div class="slot-adjust-block"><div class="slot-slider-row"><input type="range" class="slot-slider" min="1.00" max="1.50" step="0.01" value="1.00" /><span class="slot-slider-val">1.00</span></div><input type="text" class="slot-reason-input" placeholder="Lý do điều chỉnh (tuỳ chọn)..." /><div class="slot-action-btns"><button class="btn-confirm-em">✅ Đồng ý</button><button class="btn-adjust-em">🔄 Cập nhật</button></div></div></div>
+          <div class="slot-card-header"><span class="slot-icon">⚡</span><div class="slot-content"><div class="slot-name">Hệ số gấp tiến độ</div><div class="slot-value">—</div><div class="slot-confidence"></div></div><span class="slot-indicator"></span></div>
+          <div class="slot-expand-panel"><div class="slot-evidence-block"><div class="slot-detail-label">💬 Bằng chứng</div><div class="slot-evidence-text">—</div></div><div class="slot-reasoning-block"><div class="slot-detail-label">🧠 Lập luận</div><div class="slot-reasoning-text">—</div></div><div class="slot-adjust-block"><div class="slot-slider-row"><input type="range" class="slot-slider" min="1.00" max="1.50" step="0.01" value="1.00" /><span class="slot-slider-val">1.00</span></div><input type="text" class="slot-reason-input" placeholder="Lý do điều chỉnh (tuỳ chọn)..." /><div class="slot-action-btns"><button class="btn-confirm-em">✅ Đồng ý</button><button class="btn-adjust-em">🔄 Cập nhật</button></div></div></div>
         </div>
         <div class="slot-card" id="slot-EM_C2" data-em="EM_C2" data-status="empty">
-          <div class="slot-card-header"><span class="slot-icon">🏢</span><div class="slot-content"><div class="slot-name">Compliance & SLA</div><div class="slot-value">—</div><div class="slot-confidence"></div></div><span class="slot-indicator"></span></div>
-          <div class="slot-expand-panel"><div class="slot-evidence-block"><div class="slot-detail-label">💬 Evidence</div><div class="slot-evidence-text">—</div></div><div class="slot-reasoning-block"><div class="slot-detail-label">🧠 Reasoning</div><div class="slot-reasoning-text">—</div></div><div class="slot-adjust-block"><div class="slot-slider-row"><input type="range" class="slot-slider" min="0.80" max="1.00" step="0.01" value="1.00" /><span class="slot-slider-val">1.00</span></div><input type="text" class="slot-reason-input" placeholder="Lý do điều chỉnh (tuỳ chọn)..." /><div class="slot-action-btns"><button class="btn-confirm-em">✅ Đồng ý</button><button class="btn-adjust-em">🔄 Cập nhật</button></div></div></div>
+          <div class="slot-card-header"><span class="slot-icon">🏢</span><div class="slot-content"><div class="slot-name">Tuân thủ & SLA</div><div class="slot-value">—</div><div class="slot-confidence"></div></div><span class="slot-indicator"></span></div>
+          <div class="slot-expand-panel"><div class="slot-evidence-block"><div class="slot-detail-label">💬 Bằng chứng</div><div class="slot-evidence-text">—</div></div><div class="slot-reasoning-block"><div class="slot-detail-label">🧠 Lập luận</div><div class="slot-reasoning-text">—</div></div><div class="slot-adjust-block"><div class="slot-slider-row"><input type="range" class="slot-slider" min="0.80" max="1.00" step="0.01" value="1.00" /><span class="slot-slider-val">1.00</span></div><input type="text" class="slot-reason-input" placeholder="Lý do điều chỉnh (tuỳ chọn)..." /><div class="slot-action-btns"><button class="btn-confirm-em">✅ Đồng ý</button><button class="btn-adjust-em">🔄 Cập nhật</button></div></div></div>
         </div>
         <div class="slot-card" id="slot-EM_C3" data-em="EM_C3" data-status="empty">
-          <div class="slot-card-header"><span class="slot-icon">💳</span><div class="slot-content"><div class="slot-name">Payment Term</div><div class="slot-value">—</div><div class="slot-confidence"></div></div><span class="slot-indicator"></span></div>
-          <div class="slot-expand-panel"><div class="slot-evidence-block"><div class="slot-detail-label">💬 Evidence</div><div class="slot-evidence-text">—</div></div><div class="slot-reasoning-block"><div class="slot-detail-label">🧠 Reasoning</div><div class="slot-reasoning-text">—</div></div><div class="slot-adjust-block"><div class="slot-slider-row"><input type="range" class="slot-slider" min="0.00" max="0.05" step="0.01" value="0.00" /><span class="slot-slider-val">0.00</span></div><input type="text" class="slot-reason-input" placeholder="Lý do điều chỉnh (tuỳ chọn)..." /><div class="slot-action-btns"><button class="btn-confirm-em">✅ Đồng ý</button><button class="btn-adjust-em">🔄 Cập nhật</button></div></div></div>
+          <div class="slot-card-header"><span class="slot-icon">💳</span><div class="slot-content"><div class="slot-name">Điều khoản thanh toán</div><div class="slot-value">—</div><div class="slot-confidence"></div></div><span class="slot-indicator"></span></div>
+          <div class="slot-expand-panel"><div class="slot-evidence-block"><div class="slot-detail-label">💬 Bằng chứng</div><div class="slot-evidence-text">—</div></div><div class="slot-reasoning-block"><div class="slot-detail-label">🧠 Lập luận</div><div class="slot-reasoning-text">—</div></div><div class="slot-adjust-block"><div class="slot-slider-row"><input type="range" class="slot-slider" min="0.00" max="0.05" step="0.01" value="0.00" /><span class="slot-slider-val">0.00</span></div><input type="text" class="slot-reason-input" placeholder="Lý do điều chỉnh (tuỳ chọn)..." /><div class="slot-action-btns"><button class="btn-confirm-em">✅ Đồng ý</button><button class="btn-adjust-em">🔄 Cập nhật</button></div></div></div>
         </div>
       </div>
 
       <div id="negotiation-controls-panel" hidden>
         <div class="neg-card">
-          <div class="neg-card-title">🎯 Intent Confirmation</div>
-          <div class="neg-grid-2">
-            <div>
-              <label class="neg-label" for="intent-selected-tier">Selected Tier</label>
-              <select id="intent-selected-tier" class="neg-input">
-                <option value="standard">Standard</option>
-                <option value="basic">Basic</option>
-                <option value="premium">Premium</option>
-              </select>
-            </div>
-            <div>
-              <label class="neg-label" for="intent-client-budget">Client Budget (VND)</label>
-              <input id="intent-client-budget" class="neg-input" type="number" min="0" step="1000000" placeholder="Ví dụ: 300000000" />
-            </div>
+          <div class="neg-card-title">🧭 Tóm tắt tham số đàm phán</div>
+          <div class="neg-summary-grid-negotiation">
+            <div><span>Gói khách hàng nghiêng về</span><strong id="neg-param-tier">—</strong></div>
+            <div><span>Ngân sách khách hàng</span><strong id="neg-param-budget">—</strong></div>
+            <div><span>Mức giá khách đang đưa</span><strong id="neg-param-current-offer">—</strong></div>
+            <div><span>Độ tin cậy phân tích</span><strong id="neg-param-confidence">—</strong></div>
           </div>
-          <div class="neg-meta-row">
-            <span id="intent-confidence" class="neg-chip">Confidence: —</span>
-          </div>
-          <ul id="intent-evidence-list" class="neg-list">
-            <li>Chưa có evidence từ transcript đàm phán.</li>
-          </ul>
-          <button id="btn-confirm-intent" class="neg-action-btn">✅ Confirm Intent</button>
         </div>
 
         <div class="neg-card">
-          <div class="neg-card-title">🧩 Trade-off Cards</div>
+          <div class="neg-card-title">🧩 Hạng mục có thể điều chỉnh</div>
           <div id="negotiation-cards-list" class="neg-cards-list">
-            <div class="neg-empty">Chưa có recommendation. Hãy confirm intent trước.</div>
-          </div>
-          <button id="btn-generate-recommendation" class="neg-action-btn" disabled>⚙️ Generate Recommendation</button>
-        </div>
-
-        <div class="neg-card">
-          <div class="neg-card-title">🛡️ Guardrail Status</div>
-          <div id="guardrail-status-panel" class="neg-guardrail-list">
-            <div class="guard-item"><span>Dependency</span><span class="guard-badge pending">PENDING</span></div>
-            <div class="guard-item"><span>Operation</span><span class="guard-badge pending">PENDING</span></div>
-            <div class="guard-item"><span>Contract</span><span class="guard-badge pending">PENDING</span></div>
-            <div class="guard-item"><span>Pricing Integrity</span><span class="guard-badge pending">PENDING</span></div>
+            <div class="neg-empty">Chưa có đề xuất điều chỉnh. Hãy phân tích transcript đàm phán.</div>
           </div>
         </div>
 
         <div class="neg-card">
-          <div class="neg-card-title">📌 Gap Snapshot</div>
-          <div class="neg-summary-grid">
-            <div><span>Target Gap</span><strong id="gap-target">—</strong></div>
-            <div><span>Covered</span><strong id="gap-covered">—</strong></div>
-            <div><span>Residual</span><strong id="gap-residual">—</strong></div>
-          </div>
+          <div class="neg-card-title">📝 Trích dẫn đàm phán</div>
+          <ul id="neg-evidence-list" class="neg-list">
+            <li>Chưa có trích dẫn từ hội thoại đàm phán.</li>
+          </ul>
         </div>
+
+        <button id="btn-generate-recommendation" class="neg-action-btn" disabled>⚙️ Tạo 3 báo giá</button>
       </div>
     </section>
 
     <!-- ──────────────────────────── PANEL 3: PRICE REPORT ─── -->
-    <section class="panel" id="report-panel" aria-label="Price Report">
+    <section class="panel" id="report-panel" aria-label="Báo cáo định giá">
 
       <div class="panel-header">
         <div class="panel-title">
           <span class="icon">📊</span>
-          Explainable Price Report
+          Báo cáo định giá có giải trình
         </div>
       </div>
 
@@ -400,112 +374,123 @@
         <!-- Placeholder (shown before report is ready) -->
         <div id="report-placeholder">
           <div class="placeholder-ring">📊</div>
-          <h3>Base Price Report</h3>
+          <h3>Báo cáo giá cơ sở</h3>
           <p>
-            Nạp hồ sơ và transcript trò chuyện, sau đó nhấn <strong>⚡ Tính Base Price Nhanh</strong> để xem báo cáo.
+            Nạp hồ sơ và transcript trò chuyện, sau đó nhấn <strong>⚡ Tính giá cơ sở nhanh</strong> để xem báo cáo.
             Có thể tạo báo cáo bất kỳ lúc nào, kể cả khi chưa đủ 12 tham số.
           </p>
         </div>
 
         <!-- The actual report (hidden until calculator runs) -->
         <div id="report-content" hidden>
-
-          <!-- HERO: Recommended Price -->
-          <div id="price-hero" class="report-section">
-            <div class="price-label">💰 Recommended Price</div>
-            <div id="price-amount">—</div>
-            <div class="price-note" id="price-note">Based on project scope and risk assessment</div>
-            <div id="price-delta"></div>
+          <div id="report-tabbar">
+            <button id="report-tab-base" class="report-tab active">Báo cáo cơ sở</button>
+            <button id="report-tab-three-tier" class="report-tab" disabled>Báo cáo 3 gói giá</button>
           </div>
 
-          <!-- Narrative -->
-          <div class="report-card report-section" id="narrative-card">
-            <div class="report-card-header">
-              <span>📖</span> Why This Price?
+          <div id="base-report-content" class="report-tab-content">
+            <!-- HERO: Recommended Price -->
+            <div id="price-hero" class="report-section">
+              <div class="price-label">💰 Mức giá đề xuất</div>
+              <div id="price-amount">—</div>
+              <div class="price-note" id="price-note">Dựa trên phạm vi dự án và đánh giá rủi ro</div>
+              <div id="price-delta"></div>
             </div>
-            <div class="report-card-body">
-              <div id="narrative-list"></div>
-            </div>
-          </div>
 
-          <!-- Cost Breakdown -->
-          <div class="report-card report-section" id="cost-card">
-            <div class="report-card-header">
-              <span>🧮</span> Cost Breakdown
-            </div>
-            <div class="report-card-body" id="cost-items"></div>
-          </div>
-
-          <!-- Risk Adjustments -->
-          <div class="report-card report-section" id="risk-card">
-            <div class="report-card-header">
-              <span>⚠️</span> Risk Adjustments Applied
-            </div>
-            <div class="report-card-body" id="risk-items"></div>
-          </div>
-
-          <!-- Margin -->
-          <div class="report-card report-section" id="margin-card">
-            <div class="report-card-header">
-              <span>📈</span> Margin Breakdown
-            </div>
-            <div class="report-card-body" id="margin-items"></div>
-          </div>
-
-          <div class="report-card report-section" id="phase3-quote-section" hidden>
-            <div class="report-card-header">
-              <span>💼</span> Phase 3 - Deal Quotation (3 Tiers)
-            </div>
-            <div class="report-card-body">
-              <div id="base-report-locked" class="phase-lock-note">Base report locked. Negotiation outputs are generated below.</div>
-
-              <div id="tier-quote-grid" class="tier-grid">
-                <div id="quote-tier-basic" class="tier-card">
-                  <div class="tier-name">Basic</div>
-                  <div class="tier-price">—</div>
-                  <ul class="tier-meta" data-role="scope"></ul>
-                  <ul class="tier-meta" data-role="client"></ul>
-                  <ul class="tier-meta" data-role="clause"></ul>
-                </div>
-                <div id="quote-tier-standard" class="tier-card tier-selected">
-                  <div class="tier-name">Standard</div>
-                  <div class="tier-price">—</div>
-                  <ul class="tier-meta" data-role="scope"></ul>
-                  <ul class="tier-meta" data-role="client"></ul>
-                  <ul class="tier-meta" data-role="clause"></ul>
-                </div>
-                <div id="quote-tier-premium" class="tier-card">
-                  <div class="tier-name">Premium</div>
-                  <div class="tier-price">—</div>
-                  <ul class="tier-meta" data-role="scope"></ul>
-                  <ul class="tier-meta" data-role="client"></ul>
-                  <ul class="tier-meta" data-role="clause"></ul>
-                </div>
+            <!-- Narrative -->
+            <div class="report-card report-section" id="narrative-card">
+              <div class="report-card-header">
+                <span>📖</span> Vì sao có mức giá này?
               </div>
-
-              <div id="quote-readiness-checklist" class="quote-checklist">
-                <div class="quote-check-item"><span>Intent confirmed</span><span class="check-badge pending">PENDING</span></div>
-                <div class="quote-check-item"><span>Budget confirmed</span><span class="check-badge pending">PENDING</span></div>
-                <div class="quote-check-item"><span>Guardrails passed</span><span class="check-badge pending">PENDING</span></div>
-                <div class="quote-check-item"><span>Residual gap resolved</span><span class="check-badge pending">PENDING</span></div>
-                <div class="quote-check-item"><span>Mandatory clauses acknowledged</span><span class="check-badge pending">PENDING</span></div>
+              <div class="report-card-body">
+                <div id="narrative-list"></div>
               </div>
+            </div>
 
-              <label class="clause-ack-wrap">
-                <input id="quote-clause-ack" type="checkbox" />
-                Tôi đã xác nhận toàn bộ điều khoản bắt buộc với pre-sales.
-              </label>
-
-              <div class="quote-residual-box">Residual Gap: <strong id="quote-residual-gap">—</strong></div>
-
-              <div id="quote-playbook" class="quote-playbook">
-                Playbook đàm phán sẽ xuất hiện sau khi generate recommendation.
+            <!-- Cost Breakdown -->
+            <div class="report-card report-section" id="cost-card">
+              <div class="report-card-header">
+                <span>🧮</span> Cấu phần chi phí
               </div>
+              <div class="report-card-body" id="cost-items"></div>
+            </div>
 
-              <button id="btn-export-quotation" class="quote-export-btn" disabled>📤 Xuất báo giá 3 tiers</button>
+            <!-- Risk Adjustments -->
+            <div class="report-card report-section" id="risk-card">
+              <div class="report-card-header">
+                <span>⚠️</span> Điều chỉnh rủi ro đã áp dụng
+              </div>
+              <div class="report-card-body" id="risk-items"></div>
+            </div>
+
+            <!-- Margin -->
+            <div class="report-card report-section" id="margin-card">
+              <div class="report-card-header">
+                <span>📈</span> Cấu phần biên lợi nhuận
+              </div>
+              <div class="report-card-body" id="margin-items"></div>
             </div>
           </div>
 
+          <div id="three-tier-report-content" class="report-tab-content" hidden>
+            <div id="phase3-analysis-section" class="report-card report-section" hidden>
+              <div class="report-card-header">
+                <span>🧠</span> Kết quả phân tích đàm phán
+              </div>
+              <div class="report-card-body">
+                <div class="negotiation-report-metrics">
+                  <div><span>Gói mục tiêu</span><strong id="report-neg-tier">—</strong></div>
+                  <div><span>Ngân sách ghi nhận</span><strong id="report-neg-budget">—</strong></div>
+                  <div><span>Mức giá khách đưa</span><strong id="report-neg-offer">—</strong></div>
+                </div>
+                <div id="report-adjustment-list" class="report-adjustment-list">
+                  <div class="neg-empty">Chưa có đề xuất điều chỉnh.</div>
+                </div>
+                <ul id="report-neg-evidence" class="neg-list">
+                  <li>Chưa có trích dẫn hội thoại.</li>
+                </ul>
+              </div>
+            </div>
+
+            <div id="three-tier-empty" class="three-tier-empty">
+              Chưa có dữ liệu đàm phán. Hãy phân tích transcript để tạo tham số thương lượng.
+            </div>
+
+            <div class="report-card report-section" id="phase3-quote-section" hidden>
+              <div class="report-card-header">
+                <span>💼</span> Giai đoạn 3 - Báo giá đàm phán (3 gói)
+              </div>
+              <div class="report-card-body">
+                <div id="base-report-locked" class="phase-lock-note">Báo cáo cơ sở đã được khóa. Kết quả đàm phán được hiển thị bên dưới.</div>
+
+                <div id="tier-quote-grid" class="tier-grid">
+                  <div id="quote-tier-basic" class="tier-card">
+                    <div class="tier-name">Cơ bản</div>
+                    <div class="tier-price">—</div>
+                    <ul class="tier-meta" data-role="scope"></ul>
+                    <ul class="tier-meta" data-role="client"></ul>
+                    <ul class="tier-meta" data-role="clause"></ul>
+                  </div>
+                  <div id="quote-tier-standard" class="tier-card tier-selected">
+                    <div class="tier-name">Tiêu chuẩn</div>
+                    <div class="tier-price">—</div>
+                    <ul class="tier-meta" data-role="scope"></ul>
+                    <ul class="tier-meta" data-role="client"></ul>
+                    <ul class="tier-meta" data-role="clause"></ul>
+                  </div>
+                  <div id="quote-tier-premium" class="tier-card">
+                    <div class="tier-name">Nâng cao</div>
+                    <div class="tier-price">—</div>
+                    <ul class="tier-meta" data-role="scope"></ul>
+                    <ul class="tier-meta" data-role="client"></ul>
+                    <ul class="tier-meta" data-role="clause"></ul>
+                  </div>
+                </div>
+
+                <button id="btn-export-quotation" class="quote-export-btn" disabled>📤 Xuất báo giá 3 gói</button>
+              </div>
+            </div>
+          </div>
         </div><!-- /report-content -->
       </div><!-- /report-scroll -->
     </section>

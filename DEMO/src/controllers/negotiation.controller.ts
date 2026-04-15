@@ -10,6 +10,7 @@ import { TradeoffEngineService } from '../services/tradeoff-engine.service';
 import {
   NegotiationAuditLog,
   NegotiationIntent,
+  NegotiationWorkflowPhase,
   TierName,
 } from '../types/negotiation.types';
 
@@ -127,6 +128,19 @@ function getLastRecommendationLog(serverSession: ReturnType<typeof sessionReposi
   return null;
 }
 
+function getLatestNegotiationWorkflowPhase(
+  serverSession: ReturnType<typeof sessionRepository.getOrCreate>
+): NegotiationWorkflowPhase {
+  const logs = serverSession.negotiationLogs;
+  for (let i = logs.length - 1; i >= 0; i -= 1) {
+    const type = logs[i].type;
+    if (type === 'playbook_confirmed') return 'playbook_confirmed';
+    if (type === 'recommendation_generated') return 'quote_recommended';
+    if (type === 'intent_analyzed') return 'negotiation_analyzed';
+  }
+  return 'base_ready';
+}
+
 export const analyzeNegotiation = async (req: Request, res: Response) => {
   const { sessionId, transcript, targetTierHint } = req.body || {};
 
@@ -160,6 +174,8 @@ export const analyzeNegotiation = async (req: Request, res: Response) => {
       suggestions: analysis.suggestions,
       requiresHumanConfirm: true,
       auditLogId: auditEntry.auditId,
+      workflowPhase: 'negotiation_analyzed',
+      threeTierReady: false,
     });
   } catch (err: any) {
     console.error(`[Negotiation][Analyze] ${sessionId}:`, err.message);
@@ -255,6 +271,8 @@ export const recommendNegotiation = (req: Request, res: Response) => {
       salesScriptDraft,
       requiresHumanConfirm: true,
       auditLogId: auditEntry.auditId,
+      workflowPhase: 'quote_recommended',
+      threeTierReady: true,
       pricingContext: {
         baseCostVnd: calculation._debug.baseCost,
         recommendedPriceVnd: calculation.recommendedPrice,
@@ -326,5 +344,33 @@ export const confirmNegotiationPlaybook = (req: Request, res: Response) => {
     success: true,
     auditLogId: auditEntry.auditId,
     playbook: finalPlaybook,
+    workflowPhase: 'playbook_confirmed',
+    threeTierReady: true,
+  });
+};
+
+export const getNegotiationStatus = (req: Request, res: Response) => {
+  const sessionId = String(req.query.sessionId || '').trim();
+  if (!sessionId) {
+    return res.status(400).json({ error: 'sessionId query param is required' });
+  }
+
+  const serverSession = sessionRepository.get(sessionId);
+  if (!serverSession) {
+    return res.status(404).json({ error: `Session "${sessionId}" not found` });
+  }
+
+  const workflowPhase = getLatestNegotiationWorkflowPhase(serverSession);
+  const lastRecommendation = getLastRecommendationLog(serverSession);
+  const hasIntentAnalysis = serverSession.negotiationLogs.some((x) => x.type === 'intent_analyzed');
+  const hasConfirmedPlaybook = serverSession.negotiationLogs.some((x) => x.type === 'playbook_confirmed');
+
+  return res.json({
+    sessionId,
+    workflowPhase,
+    threeTierReady: workflowPhase === 'quote_recommended' || workflowPhase === 'playbook_confirmed',
+    lastRecommendationAuditId: lastRecommendation?.auditId || null,
+    hasIntentAnalysis,
+    hasConfirmedPlaybook,
   });
 };

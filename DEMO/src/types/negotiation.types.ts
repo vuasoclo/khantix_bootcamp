@@ -1,4 +1,9 @@
 export type TierName = 'basic' | 'standard' | 'premium';
+export type NegotiationWorkflowPhase =
+  | 'base_ready'
+  | 'negotiation_analyzed'
+  | 'quote_recommended'
+  | 'playbook_confirmed';
 
 export type NegotiationConfidence = 'high' | 'medium' | 'low';
 

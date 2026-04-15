@@ -138,6 +138,8 @@ export const baseReport = (req: Request, res: Response) => {
 
   return res.json({
     sessionId,
+    workflowPhase: 'base_ready',
+    threeTierReady: false,
     baseCost,
     totalRecommendedPrice,
     estimatedManDays: manDays,

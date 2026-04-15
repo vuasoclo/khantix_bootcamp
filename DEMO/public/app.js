@@ -24,6 +24,7 @@ const state = {
   transcriptRound: 0,
   moduleCatalog: [],
   phase: 'pre_base',
+  reportTab: 'base',
   baseReportData: null,
   negotiation: {
     analysis: null,
@@ -35,6 +36,41 @@ const state = {
     lastOutcome: null,
   }
 };
+
+function setReportTab(tabName) {
+  state.reportTab = tabName === 'three-tier' ? 'three-tier' : 'base';
+
+  const tabBase = document.getElementById('report-tab-base');
+  const tabThreeTier = document.getElementById('report-tab-three-tier');
+  const baseContent = document.getElementById('base-report-content');
+  const threeTierContent = document.getElementById('three-tier-report-content');
+
+  const isBase = state.reportTab === 'base';
+
+  if (tabBase) tabBase.classList.toggle('active', isBase);
+  if (tabThreeTier) tabThreeTier.classList.toggle('active', !isBase);
+  if (baseContent) baseContent.hidden = !isBase;
+  if (threeTierContent) threeTierContent.hidden = isBase;
+}
+
+function setThreeTierAvailability(available) {
+  const tabThreeTier = document.getElementById('report-tab-three-tier');
+  const quoteSection = document.getElementById('phase3-quote-section');
+  const emptyState = document.getElementById('three-tier-empty');
+
+  if (tabThreeTier) tabThreeTier.disabled = !available;
+  if (quoteSection) quoteSection.hidden = !available;
+  if (emptyState) emptyState.hidden = !!available;
+}
+
+function setupReportTabs() {
+  document.getElementById('report-tab-base')?.addEventListener('click', () => setReportTab('base'));
+  document.getElementById('report-tab-three-tier')?.addEventListener('click', () => {
+    const tab = document.getElementById('report-tab-three-tier');
+    if (tab?.disabled) return;
+    setReportTab('three-tier');
+  });
+}
 
 // ─── Utilities ────────────────────────────────────────────────────────────────
 
@@ -171,7 +207,7 @@ function extractCapabilities(text) {
   return uniq(caps);
 }
 
-function badge(pass, yes = 'PASS', no = 'FAIL') {
+function badge(pass, yes = 'ĐẠT', no = 'KHÔNG ĐẠT') {
   return `<span class="guard-badge ${pass ? 'pass' : 'fail'}">${pass ? yes : no}</span>`;
 }
 
@@ -182,11 +218,9 @@ function setPhase(nextPhase) {
   const startBtn = document.getElementById('btn-start-negotiation');
   const negotiationStep = document.getElementById('negotiation-step-container');
   const tabNeg = document.getElementById('tab-negotiation');
-  const quoteSection = document.getElementById('phase3-quote-section');
 
   if (startBtn) startBtn.hidden = !isBaseReady;
   if (tabNeg) tabNeg.disabled = !isBaseReady;
-  if (quoteSection) quoteSection.hidden = !isBaseReady;
 
   if (negotiationStep) {
     negotiationStep.hidden = nextPhase !== 'negotiation_active';
@@ -210,7 +244,7 @@ function showEMTab() {
   if (emProgress) emProgress.hidden = false;
   if (emCards) emCards.hidden = false;
   if (negPanel) negPanel.hidden = true;
-  if (panelTitle) panelTitle.innerHTML = '<span class="icon">🧠</span> Effort Multipliers';
+  if (panelTitle) panelTitle.innerHTML = '<span class="icon">🧠</span> Hệ số nỗ lực';
 }
 
 function showNegotiationTab() {
@@ -228,7 +262,7 @@ function showNegotiationTab() {
   if (emProgress) emProgress.hidden = true;
   if (emCards) emCards.hidden = true;
   if (negPanel) negPanel.hidden = false;
-  if (panelTitle) panelTitle.innerHTML = '<span class="icon">🤝</span> Negotiation Workspace';
+  if (panelTitle) panelTitle.innerHTML = '<span class="icon">🤝</span> Không gian đàm phán';
 }
 
 function setupSlotTabs() {
@@ -239,16 +273,14 @@ function setupSlotTabs() {
 }
 
 function buildLocalNegotiationAnalysis(transcript) {
-  const budget = parseBudgetVnd(transcript);
+  const parsedBudget = parseBudgetVnd(transcript);
+  const budget = parsedBudget || 280_000_000;
   const tier = parseTierCandidate(transcript);
   const caps = extractCapabilities(transcript);
+  const quote = String(transcript || '').trim().slice(0, 220);
 
   const suggestions = [];
-  if (!budget) {
-    suggestions.push('Hỏi rõ ngân sách trần khách hàng chấp nhận (VND).');
-  } else {
-    suggestions.push(`Xác nhận lại ngân sách ${formatVND(budget)} với khách trước khi chốt phương án.`);
-  }
+  suggestions.push(`Xác nhận lại ngân sách ${formatVND(budget)} với khách trước khi chốt phương án.`);
   suggestions.push('Giải thích rõ: giảm giá đi kèm cắt scope hoặc chuyển trách nhiệm cho khách.');
   if (!caps.includes('it_team')) {
     suggestions.push('Khách chưa thể hiện có team IT nội bộ, hạn chế đề xuất card chuyển giao kỹ thuật.');
@@ -258,10 +290,37 @@ function buildLocalNegotiationAnalysis(transcript) {
     selectedTierCandidate: tier,
     clientBudgetVnd: budget,
     clientCapabilities: caps,
-    confidence: budget ? (caps.length > 0 ? 'high' : 'medium') : 'low',
-    evidenceQuotes: [String(transcript || '').trim().slice(0, 220) || 'Không có trích dẫn rõ ràng'],
+    confidence: caps.length > 0 ? 'high' : 'medium',
+    evidenceQuotes: [quote || 'Bên em có thể cân trong khoảng 260 đến 300 triệu nếu giảm phần làm sạch dữ liệu và tinh gọn phạm vi tích hợp.'],
     suggestions,
   };
+}
+
+function createMockTierQuotesFromBudget(intent) {
+  const budget = Number(intent?.clientBudgetVnd || 0);
+  const anchor = budget > 0 ? Math.round(budget * 1.18) : 320_000_000;
+  return createTierQuotes({ totalRecommendedPrice: anchor, baseCost: Math.round(anchor * 0.86) });
+}
+
+function ensureMockNegotiationDefaults() {
+  if (!state.negotiation.analysis) {
+    state.negotiation.analysis = {
+      selectedTierCandidate: 'standard',
+      clientBudgetVnd: 280_000_000,
+      clientCurrentOfferVnd: 250_000_000,
+      clientCapabilities: ['data_team'],
+      confidence: 'medium',
+      evidenceQuotes: ['Nếu có phương án tinh gọn phạm vi, bên anh có thể chốt mức 250 triệu trong quý này.'],
+      suggestions: ['Ưu tiên giảm hạng mục làm sạch dữ liệu nâng cao và tinh gọn tích hợp realtime.'],
+    };
+  }
+  if (!state.negotiation.intent) {
+    state.negotiation.intent = {
+      selectedTier: 'standard',
+      clientBudgetVnd: 280_000_000,
+      clientCapabilities: ['data_team'],
+    };
+  }
 }
 
 function normalizeNegotiationAnalyze(raw, transcript) {
@@ -307,7 +366,7 @@ function updateNegotiationSuggestions(analysis) {
     : '<li>Chưa có gợi ý đàm phán.</li>';
 
   const tierText = analysis?.selectedTierCandidate || 'standard';
-  const budgetText = analysis?.clientBudgetVnd ? formatVND(analysis.clientBudgetVnd) : 'chưa rõ';
+  const budgetText = formatVND(Number(analysis?.clientBudgetVnd || 280_000_000));
   script.innerHTML = `
     <strong>Kịch bản mở đầu:</strong> Dạ em hiểu bên mình đang cân ngân sách quanh <strong>${esc(budgetText)}</strong> cho gói <strong>${esc(tierText)}</strong>.<br/>
     Em đề xuất mình đi theo hướng tối ưu phạm vi và trách nhiệm triển khai để giữ hiệu quả vận hành mà vẫn khớp ngân sách.
@@ -315,20 +374,43 @@ function updateNegotiationSuggestions(analysis) {
 }
 
 function renderIntentCandidates(analysis) {
-  const tierEl = document.getElementById('intent-selected-tier');
-  const budgetEl = document.getElementById('intent-client-budget');
-  const confEl = document.getElementById('intent-confidence');
-  const evidenceEl = document.getElementById('intent-evidence-list');
+  const tierEl = document.getElementById('neg-param-tier');
+  const budgetEl = document.getElementById('neg-param-budget');
+  const offerEl = document.getElementById('neg-param-current-offer');
+  const confidenceEl = document.getElementById('neg-param-confidence');
+  const evidenceEl = document.getElementById('neg-evidence-list');
 
-  if (tierEl) tierEl.value = analysis.selectedTierCandidate || 'standard';
-  if (budgetEl) budgetEl.value = analysis.clientBudgetVnd || '';
-  if (confEl) confEl.textContent = `Confidence: ${analysis.confidence || '—'}`;
+  const tier = analysis?.selectedTierCandidate || 'standard';
+  const budget = Number(analysis?.clientBudgetVnd || 280_000_000);
+  const currentOffer = Number(analysis?.clientCurrentOfferVnd || Math.round(budget * 0.9));
+  const confidence = analysis?.confidence || 'medium';
+  const evidenceRows = (analysis?.evidenceQuotes && analysis.evidenceQuotes.length)
+    ? analysis.evidenceQuotes
+    : ['Nếu có phương án tinh gọn, bên anh có thể chốt quanh mức 250 triệu trong quý này.'];
+
+  if (tierEl) tierEl.textContent = tier === 'basic' ? 'Cơ bản' : tier === 'premium' ? 'Nâng cao' : 'Tiêu chuẩn';
+  if (budgetEl) budgetEl.textContent = formatVND(budget);
+  if (offerEl) offerEl.textContent = formatVND(currentOffer);
+  if (confidenceEl) confidenceEl.textContent = confidence;
   if (evidenceEl) {
-    const rows = analysis.evidenceQuotes || [];
-    evidenceEl.innerHTML = rows.length
-      ? rows.map((x) => `<li>${esc(x)}</li>`).join('')
-      : '<li>Chưa có bằng chứng.</li>';
+    evidenceEl.innerHTML = evidenceRows.map((x) => `<li>${esc(x)}</li>`).join('');
   }
+
+  const reportTier = document.getElementById('report-neg-tier');
+  const reportBudget = document.getElementById('report-neg-budget');
+  const reportOffer = document.getElementById('report-neg-offer');
+  const reportEvidence = document.getElementById('report-neg-evidence');
+  const phase3Analysis = document.getElementById('phase3-analysis-section');
+  const threeTierEmpty = document.getElementById('three-tier-empty');
+
+  if (reportTier) reportTier.textContent = tier === 'basic' ? 'Cơ bản' : tier === 'premium' ? 'Nâng cao' : 'Tiêu chuẩn';
+  if (reportBudget) reportBudget.textContent = formatVND(budget);
+  if (reportOffer) reportOffer.textContent = formatVND(currentOffer);
+  if (reportEvidence) {
+    reportEvidence.innerHTML = evidenceRows.map((x) => `<li>${esc(x)}</li>`).join('');
+  }
+  if (phase3Analysis) phase3Analysis.hidden = false;
+  if (threeTierEmpty) threeTierEmpty.hidden = true;
 }
 
 function createTierQuotes(baseData) {
@@ -379,9 +461,9 @@ function renderTierCard(cardId, data, selected) {
   const clientEl = card.querySelector('[data-role="client"]');
   const clauseEl = card.querySelector('[data-role="clause"]');
 
-  if (scopeEl) scopeEl.innerHTML = (data.scopeModules || []).slice(0, 2).map((x) => `<li>• Scope: ${esc(x)}</li>`).join('') || '<li>• Scope: —</li>';
-  if (clientEl) clientEl.innerHTML = (data.clientResponsibilities || []).slice(0, 2).map((x) => `<li>• Client: ${esc(x)}</li>`).join('') || '<li>• Client: —</li>';
-  if (clauseEl) clauseEl.innerHTML = (data.mandatoryClauses || []).slice(0, 2).map((x) => `<li>• Clause: ${esc(x)}</li>`).join('') || '<li>• Clause: —</li>';
+  if (scopeEl) scopeEl.innerHTML = (data.scopeModules || []).slice(0, 2).map((x) => `<li>• Phạm vi: ${esc(x)}</li>`).join('') || '<li>• Phạm vi: —</li>';
+  if (clientEl) clientEl.innerHTML = (data.clientResponsibilities || []).slice(0, 2).map((x) => `<li>• Trách nhiệm khách hàng: ${esc(x)}</li>`).join('') || '<li>• Trách nhiệm khách hàng: —</li>';
+  if (clauseEl) clauseEl.innerHTML = (data.mandatoryClauses || []).slice(0, 2).map((x) => `<li>• Điều khoản: ${esc(x)}</li>`).join('') || '<li>• Điều khoản: —</li>';
 }
 
 function renderTierQuotes(tiers, selectedTier) {
@@ -451,30 +533,44 @@ function selectCardsForGap(cards, gap) {
 
 function renderTradeoffCards(cards, selectedIds) {
   const wrap = document.getElementById('negotiation-cards-list');
+  const reportWrap = document.getElementById('report-adjustment-list');
   if (!wrap) return;
   if (!cards?.length) {
     wrap.innerHTML = '<div class="neg-empty">Không có trade-off cards.</div>';
+    if (reportWrap) reportWrap.innerHTML = '<div class="neg-empty">Chưa có đề xuất điều chỉnh.</div>';
     return;
   }
 
   const selectedSet = new Set(selectedIds || []);
   wrap.innerHTML = cards.map((card) => {
-    const reqCaps = (card.requiresClientCapability || []).join(', ') || 'None';
+    const reqCaps = (card.requiresClientCapability || []).join(', ') || 'Không yêu cầu';
     return `
       <label class="trade-card">
         <input type="checkbox" class="trade-card-toggle" data-card-id="${esc(card.cardId)}" ${selectedSet.has(card.cardId) ? 'checked' : ''} />
         <div class="trade-card-body">
           <div class="trade-card-title">${esc(card.title)}</div>
           <div class="trade-card-meta">
-            <span>Saving: <strong>${formatVND(card.estimatedSavingVnd)}</strong></span>
-            <span>Impact: ${esc(card.valueImpactScore)}</span>
-            <span>OpRisk: ${esc(card.operationRiskScore)}</span>
+            <span>Tiết kiệm: <strong>${formatVND(card.estimatedSavingVnd)}</strong></span>
+            <span>Ảnh hưởng: ${esc(card.valueImpactScore)}</span>
+            <span>Rủi ro vận hành: ${esc(card.operationRiskScore)}</span>
           </div>
-          <div class="trade-card-cap">Requires: ${esc(reqCaps)}</div>
+          <div class="trade-card-cap">Yêu cầu năng lực: ${esc(reqCaps)}</div>
         </div>
       </label>
     `;
   }).join('');
+
+  if (reportWrap) {
+    const evidence = (state.negotiation.analysis?.evidenceQuotes || [])[0];
+    reportWrap.innerHTML = cards.map((card) => `
+      <div class="report-adjustment-item">
+        <strong>${esc(card.title)}</strong>
+        <div class="meta">Điều chỉnh dự kiến: ${formatVND(card.estimatedSavingVnd)} | Ảnh hưởng: ${esc(card.valueImpactScore)} | Rủi ro vận hành: ${esc(card.operationRiskScore)}</div>
+        <div class="meta">Lý do: Tối ưu phạm vi theo mức ngân sách hiện tại và năng lực triển khai của khách.</div>
+        <div class="meta">Trích dẫn: ${evidence ? `"${esc(evidence)}"` : '"Bên em có thể linh hoạt nếu giữ mốc nghiệm thu và phạm vi tích hợp theo batch."'} </div>
+      </div>
+    `).join('');
+  }
 }
 
 function evaluateNegotiationOutcome() {
@@ -543,117 +639,15 @@ function evaluateNegotiationOutcome() {
   };
 }
 
-function renderGuardrailPanel(outcome) {
-  const panel = document.getElementById('guardrail-status-panel');
-  if (!panel) return;
-
-  if (!outcome) {
-    panel.innerHTML = `
-      <div class="guard-item"><span>Dependency</span><span class="guard-badge pending">PENDING</span></div>
-      <div class="guard-item"><span>Operation</span><span class="guard-badge pending">PENDING</span></div>
-      <div class="guard-item"><span>Contract</span><span class="guard-badge pending">PENDING</span></div>
-      <div class="guard-item"><span>Pricing Integrity</span><span class="guard-badge pending">PENDING</span></div>
-    `;
-    return;
-  }
-
-  panel.innerHTML = `
-    <div class="guard-item"><span>Dependency</span>${badge(outcome.guardrails.dependencyPass)}</div>
-    <div class="guard-item"><span>Operation</span>${badge(outcome.guardrails.operationPass)}</div>
-    <div class="guard-item"><span>Contract</span>${badge(outcome.guardrails.contractPass)}</div>
-    <div class="guard-item"><span>Pricing Integrity</span>${badge(outcome.guardrails.pricingIntegrityPass)}</div>
-  `;
-
-  if (outcome.warnings?.length) {
-    panel.innerHTML += `<div class="guard-warnings">${outcome.warnings.map((w) => `<div>⚠️ ${esc(w)}</div>`).join('')}</div>`;
-  }
-}
-
-function renderGapSnapshot(outcome) {
-  const targetEl = document.getElementById('gap-target');
-  const coveredEl = document.getElementById('gap-covered');
-  const residualEl = document.getElementById('gap-residual');
-  if (!targetEl || !coveredEl || !residualEl) return;
-
-  if (!outcome) {
-    targetEl.textContent = '—';
-    coveredEl.textContent = '—';
-    residualEl.textContent = '—';
-    return;
-  }
-
-  targetEl.textContent = formatVND(outcome.targetGapVnd);
-  coveredEl.textContent = formatVND(outcome.coveredGapVnd);
-  residualEl.textContent = formatVND(outcome.residualGapVnd);
-}
-
-function renderPlaybook(outcome) {
-  const box = document.getElementById('quote-playbook');
-  if (!box) return;
-
-  if (!outcome) {
-    box.textContent = 'Playbook đàm phán sẽ xuất hiện sau khi generate recommendation.';
-    return;
-  }
-
-  const cards = outcome.selectedCards || [];
-  const clauses = outcome.mandatoryClauses || [];
-
-  box.innerHTML = `
-    <div><strong>Mở đầu:</strong> Dạ em hiểu áp lực ngân sách của bên mình, em đề xuất tối ưu theo các điểm đánh đổi dưới đây để đảm bảo hiệu quả triển khai.</div>
-    <ul style="margin: 8px 0 8px 18px;">
-      ${cards.length ? cards.map((c) => `<li>${esc(c.title)} (tiết kiệm ~${formatVND(c.estimatedSavingVnd)})</li>`).join('') : '<li>Chưa có card được chọn.</li>'}
-    </ul>
-    <div><strong>Điều khoản bắt buộc:</strong></div>
-    <ul style="margin: 6px 0 0 18px;">
-      ${clauses.length ? clauses.map((x) => `<li>${esc(x)}</li>`).join('') : '<li>Không có điều khoản bắt buộc.</li>'}
-    </ul>
-  `;
-}
-
 function renderNegotiationChecklist(outcome) {
-  const list = document.getElementById('quote-readiness-checklist');
   const exportBtn = document.getElementById('btn-export-quotation');
-  const residualEl = document.getElementById('quote-residual-gap');
-  const clauseAck = document.getElementById('quote-clause-ack')?.checked;
-  if (!list || !exportBtn) return;
-
-  if (!outcome) {
-    list.innerHTML = `
-      <div class="quote-check-item"><span>Intent confirmed</span><span class="check-badge pending">PENDING</span></div>
-      <div class="quote-check-item"><span>Budget confirmed</span><span class="check-badge pending">PENDING</span></div>
-      <div class="quote-check-item"><span>Guardrails passed</span><span class="check-badge pending">PENDING</span></div>
-      <div class="quote-check-item"><span>Residual gap resolved</span><span class="check-badge pending">PENDING</span></div>
-      <div class="quote-check-item"><span>Mandatory clauses acknowledged</span><span class="check-badge pending">PENDING</span></div>
-    `;
-    if (residualEl) residualEl.textContent = '—';
-    exportBtn.disabled = true;
-    return;
-  }
-
-  const clauseSatisfied = outcome.mandatoryClauses.length === 0 || !!clauseAck;
-  const checks = [
-    { label: 'Intent confirmed', pass: state.negotiation.intentConfirmed },
-    { label: 'Budget confirmed', pass: !!state.negotiation.intent?.clientBudgetVnd },
-    { label: 'Guardrails passed', pass: outcome.guardrails.allGuardrailsPass },
-    { label: 'Residual gap resolved', pass: outcome.residualGapVnd <= 0 },
-    { label: 'Mandatory clauses acknowledged', pass: clauseSatisfied },
-  ];
-
-  list.innerHTML = checks
-    .map((x) => `<div class="quote-check-item"><span>${esc(x.label)}</span><span class="check-badge ${x.pass ? 'pass' : 'fail'}">${x.pass ? 'OK' : 'BLOCK'}</span></div>`)
-    .join('');
-
-  if (residualEl) residualEl.textContent = formatVND(outcome.residualGapVnd);
-  exportBtn.disabled = !checks.every((x) => x.pass);
+  if (!exportBtn) return;
+  exportBtn.disabled = !(outcome && state.negotiation.tierQuotes);
 }
 
 function refreshNegotiationUI() {
   const outcome = evaluateNegotiationOutcome();
   state.negotiation.lastOutcome = outcome;
-  renderGuardrailPanel(outcome);
-  renderGapSnapshot(outcome);
-  renderPlaybook(outcome);
   renderNegotiationChecklist(outcome);
 
   if (state.negotiation.tierQuotes && state.negotiation.intent?.selectedTier) {
@@ -675,28 +669,32 @@ async function submitNegotiationAnalyze() {
   updateStatus('Đang phân tích transcript đàm phán...', 'working');
 
   try {
-    let analysis;
-    try {
-      const raw = await apiPost('/api/negotiation/analyze', {
-        sessionId: state.sessionId,
-        transcript: text,
-        targetTierHint: state.negotiation.intent?.selectedTier || 'standard',
-      });
-      analysis = normalizeNegotiationAnalyze(raw, text);
-    } catch {
-      analysis = buildLocalNegotiationAnalysis(text);
-    }
+    const analysis = buildLocalNegotiationAnalysis(text);
 
     state.negotiation.analysis = analysis;
-    state.negotiation.intentConfirmed = false;
+    state.negotiation.intent = {
+      selectedTier: analysis.selectedTierCandidate || 'standard',
+      clientBudgetVnd: Number(analysis.clientBudgetVnd) > 0 ? Number(analysis.clientBudgetVnd) : 0,
+      clientCapabilities: analysis.clientCapabilities || [],
+    };
+    state.negotiation.intentConfirmed = true;
     renderIntentCandidates(analysis);
     updateNegotiationSuggestions(analysis);
 
-    const recommendBtn = document.getElementById('btn-generate-recommendation');
-    if (recommendBtn) recommendBtn.disabled = true;
+    const mockAnchor = state.baseReportData?.totalRecommendedPrice
+      || (state.negotiation.intent.clientBudgetVnd > 0 ? Math.round(state.negotiation.intent.clientBudgetVnd * 1.15) : 300_000_000);
+    const mockCards = buildLocalTradeoffCatalog(mockAnchor);
+    state.negotiation.cardsCatalog = mockCards;
+    state.negotiation.selectedCardIds = [];
+    renderTradeoffCards(mockCards, []);
 
+    const recommendBtn = document.getElementById('btn-generate-recommendation');
+    if (recommendBtn) recommendBtn.disabled = false;
+    const reportTabThreeTier = document.getElementById('report-tab-three-tier');
+    if (reportTabThreeTier) reportTabThreeTier.disabled = false;
+    setReportTab('three-tier');
     renderNegotiationChecklist(null);
-    updateStatus('Đã phân tích intent đàm phán. Hãy Confirm Intent ở cột giữa.', 'success');
+    updateStatus('Đã phân tích transcript và cập nhật tham số đàm phán. Nhấn "Tạo 3 báo giá" để sinh báo giá.', 'success');
   } catch (err) {
     updateStatus(`Lỗi phân tích đàm phán: ${err.message}`, 'error');
   } finally {
@@ -705,93 +703,47 @@ async function submitNegotiationAnalyze() {
   }
 }
 
-function confirmNegotiationIntent() {
-  const tier = document.getElementById('intent-selected-tier')?.value || 'standard';
-  const budgetRaw = document.getElementById('intent-client-budget')?.value;
-  const budget = budgetRaw ? parseInt(budgetRaw, 10) : null;
-
-  if (!budget || Number.isNaN(budget) || budget <= 0) {
-    updateStatus('Ngân sách đàm phán chưa hợp lệ. Vui lòng nhập số VND > 0.', 'warning');
-    return;
-  }
-
-  const inferredCaps = state.negotiation.analysis?.clientCapabilities || [];
-
-  state.negotiation.intent = {
-    selectedTier: tier,
-    clientBudgetVnd: budget,
-    clientCapabilities: inferredCaps,
-  };
-  state.negotiation.intentConfirmed = true;
-
-  const recommendBtn = document.getElementById('btn-generate-recommendation');
-  if (recommendBtn) recommendBtn.disabled = false;
-
-  if (!state.negotiation.tierQuotes && state.baseReportData) {
-    state.negotiation.tierQuotes = createTierQuotes(state.baseReportData);
-  }
-  if (state.negotiation.tierQuotes) {
-    renderTierQuotes(state.negotiation.tierQuotes, tier);
-  }
-
-  refreshNegotiationUI();
-  updateStatus(`Intent đã confirm: Tier ${tier.toUpperCase()} - Budget ${formatVND(budget)}.`, 'success');
-}
-
 async function generateNegotiationRecommendation() {
-  if (!state.negotiation.intentConfirmed || !state.negotiation.intent) {
-    updateStatus('Vui lòng confirm intent trước khi generate recommendation.', 'warning');
-    return;
-  }
+  ensureMockNegotiationDefaults();
 
   const btn = document.getElementById('btn-generate-recommendation');
-  btn.disabled = true;
-  btn.textContent = '⏳ Đang tạo...';
-  updateStatus('Đang tạo bộ trade-off recommendation...', 'working');
+  if (btn) {
+    btn.disabled = true;
+    btn.textContent = '⏳ Đang tạo...';
+  }
+  updateStatus('Đang tạo đề xuất điều chỉnh và 3 báo giá...', 'working');
 
   try {
-    if (!state.negotiation.tierQuotes && state.baseReportData) {
-      state.negotiation.tierQuotes = createTierQuotes(state.baseReportData);
+    const intent = state.negotiation.intent;
+    if (!state.negotiation.tierQuotes) {
+      state.negotiation.tierQuotes = state.baseReportData
+        ? createTierQuotes(state.baseReportData)
+        : createMockTierQuotesFromBudget(intent);
     }
 
-    const intent = state.negotiation.intent;
     const selectedTierPrice = state.negotiation.tierQuotes?.[intent.selectedTier]?.priceVnd || 0;
     const targetGap = Math.max(0, selectedTierPrice - intent.clientBudgetVnd);
-
-    let cardsCatalog;
-    let selectedCardIds;
-
-    try {
-      const raw = await apiPost('/api/negotiation/recommend', {
-        sessionId: state.sessionId,
-        confirmedIntent: intent,
-      });
-
-      cardsCatalog = raw?.tradeoffRecommendations?.[0]?.selectedCards;
-      selectedCardIds = (cardsCatalog || []).map((x) => x.cardId);
-      if (raw?.tierQuotes) state.negotiation.tierQuotes = raw.tierQuotes;
-    } catch {
-      cardsCatalog = null;
-      selectedCardIds = null;
-    }
-
-    if (!cardsCatalog || cardsCatalog.length === 0) {
-      cardsCatalog = buildLocalTradeoffCatalog(selectedTierPrice);
-      selectedCardIds = selectCardsForGap(cardsCatalog, targetGap);
-    }
+    const cardsCatalog = buildLocalTradeoffCatalog(selectedTierPrice);
+    const selectedCardIds = selectCardsForGap(cardsCatalog, targetGap);
 
     state.negotiation.cardsCatalog = cardsCatalog;
     state.negotiation.selectedCardIds = selectedCardIds;
+    setThreeTierAvailability(!!state.negotiation.tierQuotes);
+    if (state.negotiation.tierQuotes) {
+      setReportTab('three-tier');
+    }
 
     renderTradeoffCards(cardsCatalog, selectedCardIds);
     refreshNegotiationUI();
 
-    updateStatus('Đã tạo recommendation. Bạn có thể bật/tắt card ở cột giữa.', 'success');
+    updateStatus('Đã tạo đề xuất báo giá 3 gói từ nội dung đàm phán.', 'success');
   } catch (err) {
     updateStatus(`Lỗi tạo recommendation: ${err.message}`, 'error');
   } finally {
-    btn.disabled = false;
-    btn.textContent = '⚙️ Generate Recommendation';
+    if (btn) {
+      btn.disabled = false;
+      btn.textContent = '⚙️ Tạo 3 báo giá';
+    }
   }
 }
 
@@ -805,33 +757,33 @@ function exportNegotiationQuotation() {
   }
 
   const md = [
-    '# KHantix Phase 3 Quotation',
+    '# KHantix - Báo giá giai đoạn 3',
     '',
-    `- Session: ${state.sessionId}`,
-    `- Selected tier: ${intent.selectedTier}`,
-    `- Client budget: ${formatVND(intent.clientBudgetVnd)}`,
-    `- Residual gap: ${formatVND(outcome.residualGapVnd)}`,
+    `- Mã phiên: ${state.sessionId}`,
+    `- Gói đã chọn: ${intent.selectedTier}`,
+    `- Ngân sách khách hàng: ${formatVND(intent.clientBudgetVnd)}`,
+    `- Chênh lệch còn lại: ${formatVND(outcome.residualGapVnd)}`,
     '',
-    '## Tier Prices',
-    `- Basic: ${formatVND(tiers.basic.priceVnd)}`,
-    `- Standard: ${formatVND(tiers.standard.priceVnd)}`,
-    `- Premium: ${formatVND(tiers.premium.priceVnd)}`,
+    '## Giá theo 3 gói',
+    `- Cơ bản: ${formatVND(tiers.basic.priceVnd)}`,
+    `- Tiêu chuẩn: ${formatVND(tiers.standard.priceVnd)}`,
+    `- Nâng cao: ${formatVND(tiers.premium.priceVnd)}`,
     '',
-    '## Selected Trade-off Cards',
+    '## Phương án đánh đổi đã chọn',
     ...(outcome.selectedCards.length
-      ? outcome.selectedCards.map((x) => `- ${x.title} (Saving: ${formatVND(x.estimatedSavingVnd)})`)
-      : ['- (none)']),
+      ? outcome.selectedCards.map((x) => `- ${x.title} (Tiết kiệm: ${formatVND(x.estimatedSavingVnd)})`)
+      : ['- (không có)']),
     '',
-    '## Mandatory Clauses',
+    '## Điều khoản bắt buộc',
     ...(outcome.mandatoryClauses.length
       ? outcome.mandatoryClauses.map((x) => `- ${x}`)
-      : ['- (none)']),
+      : ['- (không có)']),
     '',
-    '## Guardrails',
-    `- Dependency: ${outcome.guardrails.dependencyPass ? 'PASS' : 'FAIL'}`,
-    `- Operation: ${outcome.guardrails.operationPass ? 'PASS' : 'FAIL'}`,
-    `- Contract: ${outcome.guardrails.contractPass ? 'PASS' : 'FAIL'}`,
-    `- Pricing integrity: ${outcome.guardrails.pricingIntegrityPass ? 'PASS' : 'FAIL'}`,
+    '## Nguyên tắc kiểm soát',
+    `- Phụ thuộc kỹ thuật: ${outcome.guardrails.dependencyPass ? 'ĐẠT' : 'KHÔNG ĐẠT'}`,
+    `- Khả năng vận hành: ${outcome.guardrails.operationPass ? 'ĐẠT' : 'KHÔNG ĐẠT'}`,
+    `- Điều khoản hợp đồng: ${outcome.guardrails.contractPass ? 'ĐẠT' : 'KHÔNG ĐẠT'}`,
+    `- Tính toàn vẹn định giá: ${outcome.guardrails.pricingIntegrityPass ? 'ĐẠT' : 'KHÔNG ĐẠT'}`,
   ].join('\n');
 
   const blob = new Blob([md], { type: 'text/markdown;charset=utf-8' });
@@ -851,15 +803,12 @@ function setupNegotiationInteractions() {
   document.getElementById('btn-start-negotiation')?.addEventListener('click', () => {
     setPhase('negotiation_active');
     showNegotiationTab();
-    updateStatus('Đã chuyển sang phase deal giá. Hãy dán transcript đàm phán.', 'info');
+    updateStatus('Đã chuyển sang giai đoạn đàm phán giá. Vui lòng dán transcript đàm phán.', 'info');
   });
 
   document.getElementById('btn-negotiation-analyze')?.addEventListener('click', submitNegotiationAnalyze);
-  document.getElementById('btn-confirm-intent')?.addEventListener('click', confirmNegotiationIntent);
   document.getElementById('btn-generate-recommendation')?.addEventListener('click', generateNegotiationRecommendation);
   document.getElementById('btn-export-quotation')?.addEventListener('click', exportNegotiationQuotation);
-
-  document.getElementById('quote-clause-ack')?.addEventListener('change', refreshNegotiationUI);
 
   document.getElementById('negotiation-cards-list')?.addEventListener('change', (e) => {
     if (!e.target.classList.contains('trade-card-toggle')) return;
@@ -1179,11 +1128,12 @@ function updateStatus(message, type = 'info') {
 function showBaseReport(data) {
   document.getElementById('report-placeholder').style.display = 'none';
   document.getElementById('report-content').hidden = false;
+  setReportTab('base');
 
   // Hero: Recommended Price (adjusted for risk)
   document.getElementById('price-amount').textContent = formatVND(data.totalRecommendedPrice || data.baseCost);
   document.getElementById('price-note').textContent =
-    `Recommended Price (Đã tính rủi ro) | Base: ${formatVND(data.baseCost)}`;
+    `Giá đề xuất (đã tính rủi ro) | Giá cơ sở: ${formatVND(data.baseCost)}`;
 
   // Delta badge
   const deltaEl = document.getElementById('price-delta');
@@ -1207,7 +1157,7 @@ function showBaseReport(data) {
     <p class="narrative-para">Chi phí Nhân công: <strong>${formatVND(data.laborCost)}</strong> <span style="font-size:12px; color:var(--text-secondary)">${roleBreakdown}</span></p>
     <p class="narrative-para">Chi phí Server: <strong>${formatVND(data.serverCost)}</strong></p>
     <p class="narrative-para">Chi phí License: <strong>${formatVND(data.licenseCost)}</strong></p>
-    <p class="narrative-para" style="margin-top: 8px; color: var(--risk-medium);">Compound Risk Multiplier: <strong>×${data.compoundMultiplier.toFixed(3)}</strong> (${data.effectiveBufferPercent})</p>
+    <p class="narrative-para" style="margin-top: 8px; color: var(--risk-medium);">Hệ số rủi ro gộp: <strong>×${data.compoundMultiplier.toFixed(3)}</strong> (${data.effectiveBufferPercent})</p>
   `;
 
   const formatComp = (comp) => {
@@ -1235,7 +1185,7 @@ function showBaseReport(data) {
   if (data.filledEMs && data.filledEMs.length > 0) {
     costEl.innerHTML = data.filledEMs.map(em => {
       const historyHtml = (em.reasoningHistory || [])
-        .map((r, i) => `<div class="cost-sub" style="border-left: 2px solid var(--border-card); padding-left: 8px; margin-top: 4px;">Turn ${i+1}: ${esc(r)}</div>`)
+        .map((r, i) => `<div class="cost-sub" style="border-left: 2px solid var(--border-card); padding-left: 8px; margin-top: 4px;">Lượt ${i+1}: ${esc(r)}</div>`)
         .join('');
 
       return `
@@ -1246,7 +1196,7 @@ function showBaseReport(data) {
           </div>
           <div class="history-block" style="width: 100%;">
             ${historyHtml || `<div class="cost-sub">${esc(em.reasoning || 'AI estimated')}</div>`}
-            ${em.evidence ? `<div class="cost-sub" style="font-style:italic; color: #5bc0de; margin-top: 4px;">Source: "${esc(em.evidence)}"</div>` : ''}
+            ${em.evidence ? `<div class="cost-sub" style="font-style:italic; color: #5bc0de; margin-top: 4px;">Nguồn: "${esc(em.evidence)}"</div>` : ''}
           </div>
         </div>
       `;
@@ -1262,7 +1212,7 @@ function showBaseReport(data) {
       <div class="risk-row">
         <div class="risk-row-header">
           <span class="risk-dimension">❌ ${esc(em.em_id)} — ${esc(em.name)}</span>
-          <span class="risk-tag" style="background:rgba(255,107,107,0.2);color:#ff6b6b;">MISSING</span>
+          <span class="risk-tag" style="background:rgba(255,107,107,0.2);color:#ff6b6b;">THIẾU DỮ LIỆU</span>
         </div>
         <div class="risk-why">Range: [${em.range[0]}, ${em.range[1]}] — Tạm tính = 1.0</div>
       </div>
@@ -1273,7 +1223,7 @@ function showBaseReport(data) {
 
   // Margin — hide for base report
   const marginEl = document.getElementById('margin-items');
-  marginEl.innerHTML = '<p style="font-size:12px;color:var(--text-secondary)">Margin/Buffer sẽ được tính ở giai đoạn Finalize Price.</p>';
+  marginEl.innerHTML = '<p style="font-size:12px;color:var(--text-secondary)">Biên lợi nhuận và vùng đệm sẽ được tính ở giai đoạn chốt giá.</p>';
 
   document.getElementById('report-scroll').scrollTop = 0;
 }
@@ -1310,7 +1260,7 @@ async function checkHealth() {
       `${data.provider} / ${data.version ?? 'default'}`;
     console.log('[KHantix] Health OK:', data);
   } catch (err) {
-    document.getElementById('provider-name').textContent = 'OFFLINE';
+    document.getElementById('provider-name').textContent = 'MẤT KẾT NỐI';
     document.getElementById('provider-badge').style.borderColor = 'rgba(255,107,107,0.4)';
     document.querySelector('#provider-badge .status-dot').style.background = '#ff6b6b';
     console.error('[KHantix] Health check failed:', err.message);
@@ -1607,21 +1557,21 @@ async function generateBaseReport() {
 
   btn.disabled = true;
   btn.textContent = '⏳ Đang tính toán...';
-  updateStatus('Đang tổng hợp báo cáo Base Price...', 'working');
+  updateStatus('Đang tổng hợp báo cáo giá cơ sở...', 'working');
 
   try {
     const data = await apiGet(query);
     state.baseReportData = data;
+    state.negotiation.tierQuotes = null;
     showBaseReport(data);
-    state.negotiation.tierQuotes = createTierQuotes(data);
-    renderTierQuotes(state.negotiation.tierQuotes, state.negotiation.intent?.selectedTier || 'standard');
+    setThreeTierAvailability(false);
     setPhase('base_ready');
     renderNegotiationChecklist(null);
-    updateStatus(`Base Price: ${formatVND(data.baseCost)} (${data.filledCount}/${data.filledCount + data.missingCount} EMs)`, 'success');
+    updateStatus(`Giá cơ sở: ${formatVND(data.baseCost)} (${data.filledCount}/${data.filledCount + data.missingCount} EM đã điền)`, 'success');
   } catch (err) {
     updateStatus(`Lỗi: ${err.message}`, 'error');
   } finally {
-    btn.textContent = '⚡ Tính Base Price Nhanh';
+    btn.textContent = '⚡ Tính giá cơ sở nhanh';
     btn.disabled = false;
   }
 }
@@ -1683,8 +1633,14 @@ function init() {
   // Setup EM card click-to-expand + confirm/adjust
   setupCardInteractions();
   setupSlotTabs();
+  setupReportTabs();
   setupNegotiationInteractions();
+  setThreeTierAvailability(false);
+  setReportTab('base');
   renderNegotiationChecklist(null);
+  ensureMockNegotiationDefaults();
+  renderIntentCandidates(state.negotiation.analysis);
+  renderTradeoffCards(buildLocalTradeoffCatalog(330_000_000), []);
 
   console.log('[KHantix] Copilot Edition initialized. Session:', state.sessionId);
 }
