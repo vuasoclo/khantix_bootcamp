@@ -23,6 +23,8 @@ import indexRoute from './routes/index.route';
 import chatRoute from './routes/chat.route';
 import calculatorRoute from './routes/calculator.route';
 import negotiationRoute from './routes/negotiation.route';
+import catalogRoute from './routes/catalog.route';
+import quoteRoute from './routes/quote.route';
 import { loadInternalConfigs } from './config/internal-configs.loader';
 import { loadHeuristicMatrixV2 } from './config/heuristic-v2.loader';
 
@@ -53,6 +55,8 @@ app.use('/api', indexRoute);
 app.use('/api', chatRoute);
 app.use('/api', calculatorRoute);
 app.use('/api', negotiationRoute);
+app.use('/api', catalogRoute);
+app.use('/api', quoteRoute);
 
 // ─── Fallback: Serve SPA ──────────────────────────────────────────────────────
 
